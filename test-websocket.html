@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebSocket Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #messages {
+        border: 1px solid #ccc;
+        height: 300px;
+        overflow-y: scroll;
+        padding: 10px;
+        margin: 10px 0;
+      }
+      .message {
+        margin: 5px 0;
+      }
+      input,
+      button {
+        margin: 5px;
+        padding: 8px;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebSocket Test for Othello Multiplayer</h1>
+
+    <div>
+      <input
+        type="text"
+        id="playerName"
+        placeholder="Player Name"
+        value="TestPlayer"
+      />
+      <button onclick="createRoom()">Create Room</button>
+      <input type="text" id="roomId" placeholder="Room ID" maxlength="6" />
+      <button onclick="joinRoom()">Join Room</button>
+      <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div id="status">Status: Disconnected</div>
+    <div id="messages"></div>
+
+    <script>
+      let ws = null;
+
+      function updateStatus(message) {
+        document.getElementById("status").textContent = "Status: " + message;
+      }
+
+      function addMessage(message, type = "info") {
+        const messagesDiv = document.getElementById("messages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
+        messageDiv.style.color =
+          type === "error" ? "red" : type === "success" ? "green" : "black";
+        messageDiv.textContent =
+          new Date().toLocaleTimeString() + ": " + message;
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      function connect() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          return;
+        }
+
+        updateStatus("Connecting...");
+        ws = new WebSocket("ws://localhost:3003");
+
+        ws.onopen = function () {
+          updateStatus("Connected");
+          addMessage("Connected to WebSocket server", "success");
+        };
+
+        ws.onmessage = function (event) {
+          const message = JSON.parse(event.data);
+          addMessage("Received: " + JSON.stringify(message, null, 2), "info");
+
+          if (message.type === "room_created") {
+            document.getElementById("roomId").value = message.roomId;
+            addMessage("Room created: " + message.roomId, "success");
+          }
+        };
+
+        ws.onclose = function () {
+          updateStatus("Disconnected");
+          addMessage("Disconnected from server", "error");
+        };
+
+        ws.onerror = function (error) {
+          updateStatus("Error");
+          addMessage("WebSocket error: " + error, "error");
+        };
+      }
+
+      function createRoom() {
+        connect();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const playerName = document.getElementById("playerName").value;
+          const message = {
+            type: "create_room",
+            playerName: playerName || undefined,
+          };
+          ws.send(JSON.stringify(message));
+          addMessage("Sent: " + JSON.stringify(message), "info");
+        }
+      }
+
+      function joinRoom() {
+        connect();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const roomId = document.getElementById("roomId").value;
+          const playerName = document.getElementById("playerName").value;
+
+          if (!roomId) {
+            addMessage("Please enter a room ID", "error");
+            return;
+          }
+
+          const message = {
+            type: "join_room",
+            roomId: roomId.toUpperCase(),
+            playerName: playerName || undefined,
+          };
+          ws.send(JSON.stringify(message));
+          addMessage("Sent: " + JSON.stringify(message), "info");
+        }
+      }
+
+      function disconnect() {
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+      }
+    </script>
+  </body>
+</html>
