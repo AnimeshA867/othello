@@ -1,7 +1,7 @@
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  darkMode: "class",
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -91,7 +91,8 @@ const config: Config = {
             boxShadow: "0 0 5px rgba(255, 193, 7, 0.5)",
           },
           "50%": {
-            boxShadow: "0 0 20px rgba(255, 193, 7, 0.8), 0 0 30px rgba(255, 193, 7, 0.6)",
+            boxShadow:
+              "0 0 20px rgba(255, 193, 7, 0.8), 0 0 30px rgba(255, 193, 7, 0.6)",
           },
         },
       },
@@ -104,6 +105,6 @@ const config: Config = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-} satisfies Config
+} satisfies Config;
 
-export default config
+export default config;
