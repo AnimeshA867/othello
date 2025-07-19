@@ -82,6 +82,15 @@ export function useOthelloGame(
     [restartGame]
   );
 
+  const undoMove = useCallback(() => {
+    const success = game.undoLastMove();
+    if (success) {
+      updateGameState();
+      setIsAiThinking(false);
+    }
+    return success;
+  }, [game, updateGameState]);
+
   // Handle initial AI move if AI goes first (in some variants)
   useEffect(() => {
     if (
@@ -102,5 +111,6 @@ export function useOthelloGame(
     resignGame,
     changeDifficulty,
     updateGameState,
+    undoMove,
   };
 }

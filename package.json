@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "server": "bun run server/websocket-server.ts",
-    "dev:full": "concurrently \"bun run server\" \"bun run dev\""
+    "lint": "next lint"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

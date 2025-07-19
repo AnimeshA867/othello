@@ -48,7 +48,7 @@ export function GameInfo({
 
   const getPlayerLabel = (player: Player) => {
     if (gameMode === "ai") {
-      return player === "black" ? "You" : `AI (${difficulty})`;
+      return player === "black" ? "You" : `AI`;
     }
     return player === "black" ? "Black" : "White";
   };
@@ -74,33 +74,42 @@ export function GameInfo({
                 ? "Game Over"
                 : isAiThinking
                 ? "AI is thinking..."
-                : `${getPlayerLabel(currentPlayer)}'s Turn`}
+                : `${
+                    getPlayerLabel(currentPlayer) === "You"
+                      ? "Your"
+                      : getPlayerLabel(currentPlayer)
+                  }'s Turn`}
             </span>
           </div>
 
           {isGameOver && winner && (
             <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
               className="flex items-center gap-2"
             >
               <Trophy className="w-5 h-5 text-yellow-400" />
               <Badge
                 variant="secondary"
-                className="bg-yellow-500/20 text-yellow-300 border-yellow-500/40"
+                className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-yellow-500/40 shadow-lg"
               >
-                {getPlayerLabel(winner)} Wins!
+                🎉 {getPlayerLabel(winner)} Wins!
               </Badge>
             </motion.div>
           )}
 
           {isGameOver && !winner && (
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", bounce: 0.3 }}
+            >
               <Badge
                 variant="secondary"
-                className="bg-slate-500/20 text-slate-300 border-slate-500/40"
+                className="bg-gradient-to-r from-slate-500/20 to-gray-500/20 text-slate-300 border-slate-500/40 shadow-lg"
               >
-                It's a Tie!
+                🤝 It's a Tie!
               </Badge>
             </motion.div>
           )}
@@ -111,14 +120,15 @@ export function GameInfo({
           {/* Black Player */}
           <motion.div
             className={cn(
-              "flex items-center justify-between p-4 rounded-lg border transition-all",
+              "flex items-center justify-between p-4 rounded-lg border transition-all duration-300",
               currentPlayer === "black" && !isGameOver
-                ? "border-blue-400/60 bg-blue-500/20 shadow-lg"
+                ? "border-blue-400/60 bg-blue-500/20 shadow-lg shadow-blue-500/20"
                 : "border-slate-600 bg-slate-700/50"
             )}
             animate={{
               scale: currentPlayer === "black" && !isGameOver ? 1.02 : 1,
             }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <div className="flex items-center gap-3">
               {getPlayerIcon("black")}
@@ -131,21 +141,22 @@ export function GameInfo({
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-white">{blackScore}</div>
-              <div className="w-5 h-5 bg-gradient-to-br from-gray-800 to-black rounded-full border border-gray-600 mx-auto mt-1" />
+              <div className="w-5 h-5 bg-gradient-to-br from-gray-800 to-black rounded-full border border-gray-600 mx-auto mt-1 shadow-sm" />
             </div>
           </motion.div>
 
           {/* White Player */}
           <motion.div
             className={cn(
-              "flex items-center justify-between p-4 rounded-lg border transition-all",
+              "flex items-center justify-between p-4 rounded-lg border transition-all duration-300",
               currentPlayer === "white" && !isGameOver
-                ? "border-blue-400/60 bg-blue-500/20 shadow-lg"
+                ? "border-blue-400/60 bg-blue-500/20 shadow-lg shadow-blue-500/20"
                 : "border-slate-600 bg-slate-700/50"
             )}
             animate={{
               scale: currentPlayer === "white" && !isGameOver ? 1.02 : 1,
             }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <div className="flex items-center gap-3">
               {getPlayerIcon("white")}
@@ -158,7 +169,7 @@ export function GameInfo({
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-white">{whiteScore}</div>
-              <div className="w-5 h-5 bg-gradient-to-br from-gray-100 to-white rounded-full border border-gray-300 mx-auto mt-1" />
+              <div className="w-5 h-5 bg-gradient-to-br from-gray-100 to-white rounded-full border border-gray-300 mx-auto mt-1 shadow-sm" />
             </div>
           </motion.div>
         </div>
