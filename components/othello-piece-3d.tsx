@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, useGLTF } from "@react-three/drei";
+import { Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { type Player } from "@/lib/othello-game";
 
@@ -10,7 +10,6 @@ interface OthelloPieceProps {
   color: Player;
   isFlipping?: boolean;
   flipDirection?: "toWhite" | "toBlack";
-  scale?: number;
   rotation?: [number, number, number];
 }
 
@@ -18,32 +17,12 @@ function PieceModel({
   color,
   isFlipping,
   flipDirection,
-  scale = 1,
   rotation = [0, 0, 0],
 }: OthelloPieceProps) {
   const meshRef = useRef<THREE.Group>(null);
   const [flipProgress, setFlipProgress] = useState(0);
 
-  // Try to load the GLB model, fallback to cylinder if it fails
-  let gltf;
-  try {
-    gltf = useGLTF("/3d_model/othello.glb");
-  } catch (error) {
-    console.warn("Failed to load 3D model, using fallback geometry");
-    // Return cylinder fallback
-    return (
-      <group ref={meshRef}>
-        <mesh>
-          <cylinderGeometry args={[0.4, 0.4, 0.1, 32]} />
-          <meshStandardMaterial
-            color={color === "black" ? 0x1f2937 : 0xf9fafb}
-            metalness={0.1}
-            roughness={0.2}
-          />
-        </mesh>
-      </group>
-    );
-  }
+  // Use cylinder geometry for the othello piece
 
   // Animation for flipping
   useFrame((state, delta) => {
@@ -64,9 +43,7 @@ function PieceModel({
         setFlipProgress(0);
         meshRef.current.rotation.set(...rotation);
       }
-
-      // Apply scale
-      meshRef.current.scale.setScalar(scale);
+      // Remove the scale override - let the geometry size be consistent
     }
   });
 
@@ -77,31 +54,16 @@ function PieceModel({
     }
   }, [isFlipping]);
 
-  // Clone the model and apply materials
-  const clonedScene = gltf.scene.clone();
-
-  // Apply different materials based on color
-  clonedScene.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      if (color === "black") {
-        child.material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(0x1f2937),
-          metalness: 0.1,
-          roughness: 0.2,
-        });
-      } else {
-        child.material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(0xf9fafb),
-          metalness: 0.1,
-          roughness: 0.2,
-        });
-      }
-    }
-  });
-
   return (
     <group ref={meshRef}>
-      <primitive object={clonedScene} />
+      <mesh>
+        <cylinderGeometry args={[0.8, 0.8, 0.15, 32]} />
+        <meshStandardMaterial
+          color={color === "black" ? 0x1f2937 : 0xf9fafb}
+          metalness={0.1}
+          roughness={0.2}
+        />
+      </mesh>
     </group>
   );
 }
@@ -150,7 +112,7 @@ export function OthelloPiece3D({
         }
       >
         <Canvas
-          camera={{ position: [0, 0, 3], fov: 50 }}
+          camera={{ position: [0, 0, 2.5], fov: 50 }}
           style={{ width: "100%", height: "100%" }}
           onCreated={({ gl }) => {
             gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -171,7 +133,6 @@ export function OthelloPiece3D({
             color={color}
             isFlipping={isFlipping}
             flipDirection={flipDirection}
-            scale={0.8}
             rotation={[-Math.PI / 2, 0, 0]} // Rotate to lay flat
           />
 
