@@ -39,6 +39,9 @@ export function useMultiplayerGame() {
     localPlayer: null,
     isWaitingForPlayer: true,
     roomId: null,
+    moveHistory: [],
+    canUndo: false,
+    undosRemaining: 0,
   });
 
   const messageHandlers = useRef(new Map<string, (message: any) => void>());
@@ -243,6 +246,9 @@ export function useMultiplayerGame() {
       localPlayer: null,
       isWaitingForPlayer: true,
       roomId: null,
+      moveHistory: [],
+      canUndo: false,
+      undosRemaining: 0,
     });
   }, [disconnect]);
 
