@@ -45,18 +45,17 @@ function OthelloPiece2D({
       className={`
         ${className}
         ${animationClass}
-        rounded-full border-2 border-slate-600 shadow-lg
+        w-full h-full aspect-square rounded-full 
+        border border-slate-600 sm:border-2 shadow-lg
+        transition-all duration-300 ease-in-out
         ${
           color === "black"
             ? "bg-gradient-to-br from-gray-700 to-gray-900"
             : "bg-gradient-to-br from-gray-50 to-gray-200"
         }
+        hover:shadow-xl hover:scale-105
+        active:scale-95
       `}
-      style={{
-        width: size,
-        height: size,
-        transform: "translateZ(0)", // Enable hardware acceleration
-      }}
     />
   );
 }
@@ -144,11 +143,11 @@ export function OthelloBoard({
   };
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative w-[80%] sm:w-full mx-auto p-4", className)}>
       {/* Board Grid */}
       <div
         className={cn(
-          "grid grid-cols-8 gap-2 p-8 bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl shadow-modern border-2 border-slate-500 transition-all duration-300",
+          "grid grid-cols-8 gap-0.5 sm:gap-1 lg:gap-2 p-1 sm:p-2 lg:p-4 xl:p-8 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-modern border border-slate-500 sm:border-2 transition-all duration-300 w-full aspect-square",
           isAiThinking && "opacity-80 scale-[0.98]"
         )}
       >
@@ -186,7 +185,7 @@ export function OthelloBoard({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0 }}
                 >
-                  <div className="w-4 h-4 bg-yellow-300 rounded-full shadow-lg animate-pulse border-2 border-yellow-500" />
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 lg:w-3 lg:h-3 xl:w-4 xl:h-4 bg-yellow-300 rounded-full shadow-lg animate-pulse border border-yellow-500" />
                 </motion.div>
               )}
 
@@ -194,7 +193,7 @@ export function OthelloBoard({
               <AnimatePresence>
                 {cell && (
                   <motion.div
-                    className="absolute inset-1 flex items-center justify-center"
+                    className="absolute inset-0.5 sm:inset-1 flex items-center justify-center"
                     initial={{ scale: 0, rotate: 180 }}
                     animate={{
                       scale: 1,
@@ -271,20 +270,35 @@ export function OthelloBoard({
         )}
       </div>
 
-      {/* Board coordinates */}
-      <div className="absolute -left-12 top-8 flex flex-col justify-around h-full text-lg text-white font-bold">
-        {[8, 7, 6, 5, 4, 3, 2, 1].map((num) => (
-          <div key={num} className="flex items-center justify-center h-12">
-            {num}
-          </div>
-        ))}
-      </div>
-      <div className="absolute -bottom-12 left-8 flex justify-around w-full text-lg text-white font-bold">
-        {["A", "B", "C", "D", "E", "F", "G", "H"].map((letter) => (
-          <div key={letter} className="flex items-center justify-center w-12">
-            {letter}
-          </div>
-        ))}
+      {/* Board coordinates overlay (inside board bounds to prevent overflow) */}
+      <div className="pointer-events-none absolute inset-0 p-1 sm:p-2 lg:p-4 xl:p-8 select-none">
+        <div className="grid grid-cols-8 grid-rows-8 w-full h-full gap-0.5 sm:gap-1 lg:gap-2">
+          {/* Left-side numbers (8 to 1) */}
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={`num-${i}`}
+              style={{ gridColumnStart: 1, gridRowStart: i + 1 }}
+              className="flex items-center justify-start"
+            >
+              <span className="text-[10px] sm:text-xs md:text-sm text-white/90 font-semibold -translate-x-1 sm:-translate-x-1.5 drop-shadow">
+                {8 - i}
+              </span>
+            </div>
+          ))}
+
+          {/* Bottom letters (A to H) */}
+          {[...Array(8)].map((_, j) => (
+            <div
+              key={`let-${j}`}
+              style={{ gridColumnStart: j + 1, gridRowStart: 8 }}
+              className="flex items-end justify-center"
+            >
+              <span className="text-[10px] sm:text-xs md:text-sm text-white/90 font-semibold translate-y-1 sm:translate-y-1.5 drop-shadow">
+                {String.fromCharCode(65 + j)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

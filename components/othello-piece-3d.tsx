@@ -47,7 +47,7 @@ export function OthelloPiece3D({
   );
 }
 
-// Fallback 2D piece component
+// Responsive 2D piece component
 export function OthelloPiece2D({
   color,
   isFlipping = false,
@@ -55,17 +55,28 @@ export function OthelloPiece2D({
   size = 60,
   className = "",
 }: OthelloPiece3DProps) {
+  const animationClass = isFlipping
+    ? flipDirection === "toWhite"
+      ? "animate-pulse"
+      : "animate-pulse"
+    : "";
+
   return (
     <div
-      className={`${className} rounded-full border-2 border-slate-600 shadow-lg ${
-        color === "black"
-          ? "bg-gradient-to-br from-gray-700 to-gray-900"
-          : "bg-gradient-to-br from-gray-50 to-gray-200"
-      }`}
-      style={{
-        width: size,
-        height: size,
-      }}
+      className={`
+        ${className} 
+        ${animationClass}
+        w-full h-full aspect-square rounded-full 
+        border-2 border-slate-600 shadow-lg 
+        transition-all duration-300 ease-in-out
+        ${
+          color === "black"
+            ? "bg-gradient-to-br from-gray-700 to-gray-900"
+            : "bg-gradient-to-br from-gray-50 to-gray-200"
+        }
+        hover:shadow-xl hover:scale-105
+        active:scale-95
+      `}
     />
   );
 }
