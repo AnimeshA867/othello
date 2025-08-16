@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, User, Bot, Trophy, RotateCcw } from "lucide-react";
+import { Clock, User, Bot, Trophy, RotateCcw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Player, GameMode, Difficulty } from "@/lib/othello-game";
+import type { Player, Difficulty } from "@/lib/othello-game";
+type GameMode = "ai" | "friend" | "ranked";
 import { cn } from "@/lib/utils";
 
 interface GameInfoProps {
@@ -14,12 +15,17 @@ interface GameInfoProps {
   whiteScore: number;
   gameMode: GameMode;
   difficulty?: Difficulty;
-  isGameOver: boolean;
-  winner: Player;
-  onRestart: () => void;
+  isGameOver?: boolean;
+  winner?: Player | "draw" | null;
+  onRestart?: () => void;
   onResign?: () => void;
   className?: string;
   isAiThinking?: boolean;
+  isMultiplayer?: boolean;
+  yourTurn?: boolean;
+  blackLabel?: string;
+  whiteLabel?: string;
+  drawOfferedBy?: "black" | "white" | null;
 }
 
 export function GameInfo({
@@ -28,12 +34,17 @@ export function GameInfo({
   whiteScore,
   gameMode,
   difficulty,
-  isGameOver,
-  winner,
+  isGameOver = false,
+  winner = null,
   onRestart,
   onResign,
   className,
   isAiThinking = false,
+  isMultiplayer = false,
+  yourTurn = false,
+  blackLabel,
+  whiteLabel,
+  drawOfferedBy,
 }: GameInfoProps) {
   const getPlayerIcon = (player: Player) => {
     if (gameMode === "ai") {
@@ -42,12 +53,23 @@ export function GameInfo({
       ) : (
         <Bot className="w-4 h-4" />
       );
+    } else if (isMultiplayer) {
+      // In multiplayer, we use different icons for the players
+      return player === "black" ? (
+        <User className="w-4 h-4" />
+      ) : (
+        <Users className="w-4 h-4" />
+      );
     }
+    // Local multiplayer
     return <User className="w-4 h-4" />;
   };
 
-  const getPlayerLabel = (player: Player) => {
-    if (gameMode === "ai") {
+  const getPlayerLabel = (player: Player | "draw") => {
+    if (player === "draw") return "Draw";
+    if (isMultiplayer) {
+      return player === "black" ? blackLabel || "Black" : whiteLabel || "White";
+    } else if (gameMode === "ai") {
       return player === "black" ? "You" : `AI`;
     }
     return player === "black" ? "Black" : "White";
@@ -74,6 +96,10 @@ export function GameInfo({
                 ? "Game Over"
                 : isAiThinking
                 ? "AI thinking..."
+                : isMultiplayer
+                ? yourTurn
+                  ? "Your Turn"
+                  : `Opponent's Turn`
                 : `${
                     getPlayerLabel(currentPlayer) === "You"
                       ? "Your"
@@ -82,7 +108,22 @@ export function GameInfo({
             </span>
           </div>
 
-          {isGameOver && winner && (
+          {drawOfferedBy && !isGameOver && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-shrink-0"
+            >
+              <Badge
+                variant="secondary"
+                className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-yellow-500/40 shadow-lg text-xs px-2"
+              >
+                Draw Offered
+              </Badge>
+            </motion.div>
+          )}
+
+          {isGameOver && winner && winner !== "draw" && (
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
@@ -102,7 +143,7 @@ export function GameInfo({
             </motion.div>
           )}
 
-          {isGameOver && !winner && (
+          {isGameOver && winner === "draw" && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -138,10 +179,22 @@ export function GameInfo({
               {getPlayerIcon("black")}
               <div className="min-w-0">
                 <div className="font-semibold text-white text-xs sm:text-sm lg:text-base truncate">
-                  {getPlayerLabel("black")}
+                  {getPlayerLabel("black")}{" "}
+                  {isMultiplayer &&
+                    blackLabel === "You" &&
+                    currentPlayer === "black" && (
+                      <span className="text-xs text-blue-300">(your turn)</span>
+                    )}
                 </div>
                 <div className="text-xs text-slate-300 hidden sm:block">
-                  Black
+                  Black{" "}
+                  {isMultiplayer &&
+                    blackLabel === "You" &&
+                    drawOfferedBy === "black" && (
+                      <span className="text-yellow-300 text-xs">
+                        (offered draw)
+                      </span>
+                    )}
                 </div>
               </div>
             </div>
@@ -170,10 +223,22 @@ export function GameInfo({
               {getPlayerIcon("white")}
               <div className="min-w-0">
                 <div className="font-semibold text-white text-xs sm:text-sm lg:text-base truncate">
-                  {getPlayerLabel("white")}
+                  {getPlayerLabel("white")}{" "}
+                  {isMultiplayer &&
+                    whiteLabel === "You" &&
+                    currentPlayer === "white" && (
+                      <span className="text-xs text-blue-300">(your turn)</span>
+                    )}
                 </div>
                 <div className="text-xs text-slate-300 hidden sm:block">
-                  White
+                  White{" "}
+                  {isMultiplayer &&
+                    whiteLabel === "You" &&
+                    drawOfferedBy === "white" && (
+                      <span className="text-yellow-300 text-xs">
+                        (offered draw)
+                      </span>
+                    )}
                 </div>
               </div>
             </div>
@@ -188,16 +253,18 @@ export function GameInfo({
 
         {/* Game Controls */}
         <div className="flex gap-2 sm:gap-3">
-          <Button
-            onClick={onRestart}
-            variant="outline"
-            size="sm"
-            className="flex-1 border-slate-600 text-white hover:bg-slate-700 hover:text-white text-xs sm:text-sm px-2 sm:px-3"
-          >
-            <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">New Game</span>
-            <span className="sm:hidden">New</span>
-          </Button>
+          {onRestart && (
+            <Button
+              onClick={onRestart}
+              variant="outline"
+              size="sm"
+              className="flex-1 border-slate-600 text-white hover:bg-slate-700 hover:text-white text-xs sm:text-sm px-2 sm:px-3"
+            >
+              <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">New Game</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          )}
 
           {onResign && !isGameOver && (
             <Button
@@ -214,13 +281,37 @@ export function GameInfo({
         {/* Game Mode Info */}
         <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-600">
           <div className="flex items-center justify-between text-xs sm:text-sm text-slate-300">
-            <span>Mode: {gameMode === "ai" ? "vs AI" : "vs Friend"}</span>
+            <span>
+              {gameMode === "ai"
+                ? "vs AI"
+                : isMultiplayer
+                ? gameMode === "ranked"
+                  ? "Ranked Match"
+                  : "Friend Match"
+                : "Local Game"}
+            </span>
             {difficulty && (
               <Badge
                 variant="outline"
                 className="capitalize border-blue-500/40 text-blue-300 bg-blue-500/10 text-xs px-1 sm:px-2"
               >
                 {difficulty}
+              </Badge>
+            )}
+            {isMultiplayer && gameMode === "ranked" && (
+              <Badge
+                variant="outline"
+                className="capitalize border-amber-500/40 text-amber-300 bg-amber-500/10 text-xs px-1 sm:px-2"
+              >
+                Ranked
+              </Badge>
+            )}
+            {isMultiplayer && gameMode === "friend" && (
+              <Badge
+                variant="outline"
+                className="capitalize border-emerald-500/40 text-emerald-300 bg-emerald-500/10 text-xs px-1 sm:px-2"
+              >
+                Friend
               </Badge>
             )}
           </div>

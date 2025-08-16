@@ -9,6 +9,7 @@ interface MultiplayerGameState extends GameState {
   opponentName?: string;
   isWaitingForPlayer: boolean;
   roomId: string | null;
+  drawOfferedBy?: "black" | "white" | null;
 }
 
 export function useMultiplayerGame() {
@@ -20,6 +21,9 @@ export function useMultiplayerGame() {
     makeMove: sendMove,
     restartGame: sendRestart,
     resignGame: sendResign,
+    offerDraw: sendDrawOffer,
+    acceptDraw: sendAcceptDraw,
+    declineDraw: sendDeclineDraw,
     disconnect,
     onMessage,
   } = useWebSocketGame();
@@ -42,6 +46,7 @@ export function useMultiplayerGame() {
     moveHistory: [],
     canUndo: false,
     undosRemaining: 0,
+    drawOfferedBy: null,
   });
 
   const messageHandlers = useRef(new Map<string, (message: any) => void>());
@@ -111,6 +116,17 @@ export function useMultiplayerGame() {
     messageHandlers.current.set("game_state", (message) => {
       console.log("🎲 Game state received:", message.gameState);
       setGameState((prev) => {
+        // Log valid moves for debugging
+        if (message.gameState.validMoves) {
+          console.log(
+            `🎯 Valid moves: ${message.gameState.validMoves.length}`,
+            message.gameState.validMoves
+          );
+        } else {
+          console.warn("⚠️ No valid moves in game state");
+        }
+
+        // Keep the original validMoves from the server - filtering is now done at the component level
         const newState = {
           ...prev,
           ...message.gameState,
@@ -149,6 +165,22 @@ export function useMultiplayerGame() {
         ...prev,
         isGameOver: true,
         winner,
+      }));
+    });
+
+    messageHandlers.current.set("draw_offered", (message) => {
+      console.log("🤝 Draw offered by:", message.player);
+      setGameState((prev) => ({
+        ...prev,
+        drawOfferedBy: message.player,
+      }));
+    });
+
+    messageHandlers.current.set("draw_declined", (message) => {
+      console.log("👎 Draw declined by:", message.player);
+      setGameState((prev) => ({
+        ...prev,
+        drawOfferedBy: null,
       }));
     });
 
@@ -194,6 +226,13 @@ export function useMultiplayerGame() {
 
   const makeMove = useCallback(
     (row: number, col: number) => {
+      console.log("Attempting move at", row, col);
+      console.log("Current state:", {
+        localPlayer: gameState.localPlayer,
+        currentPlayer: gameState.currentPlayer,
+        validMovesCount: gameState.validMoves.length,
+      });
+
       // Check if it's the local player's turn
       if (gameState.localPlayer !== gameState.currentPlayer) {
         console.warn("Not your turn");
@@ -210,6 +249,7 @@ export function useMultiplayerGame() {
         return false;
       }
 
+      console.log("Sending move to server:", row, col);
       sendMove(row, col);
       return true;
     },
@@ -228,6 +268,18 @@ export function useMultiplayerGame() {
   const resignGame = useCallback(() => {
     sendResign();
   }, [sendResign]);
+
+  const offerDraw = useCallback(() => {
+    sendDrawOffer();
+  }, [sendDrawOffer]);
+
+  const acceptDraw = useCallback(() => {
+    sendAcceptDraw();
+  }, [sendAcceptDraw]);
+
+  const declineDraw = useCallback(() => {
+    sendDeclineDraw();
+  }, [sendDeclineDraw]);
 
   const leaveRoom = useCallback(() => {
     disconnect();
@@ -278,6 +330,9 @@ export function useMultiplayerGame() {
     makeMove,
     restartGame,
     resignGame,
+    offerDraw,
+    acceptDraw,
+    declineDraw,
     leaveRoom,
     isConnected: websocketState.isConnected,
     isConnecting: websocketState.isConnecting,

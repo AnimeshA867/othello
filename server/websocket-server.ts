@@ -75,6 +75,15 @@ class OthelloWebSocketServer {
       case "resign_game":
         this.resignGame(ws);
         break;
+      case "offer_draw":
+        this.offerDraw(ws);
+        break;
+      case "accept_draw":
+        this.acceptDraw(ws);
+        break;
+      case "decline_draw":
+        this.declineDraw(ws);
+        break;
       default:
         this.sendError(ws, `Unknown message type: ${message.type}`);
     }
@@ -167,6 +176,12 @@ class OthelloWebSocketServer {
     this.sendMessage(ws, {
       type: "game_state",
       gameState: room.gameState,
+    });
+
+    console.log("Game state sent to joining player:", {
+      pieces: room.gameState.board.flat().filter(cell => cell).length,
+      validMoves: room.gameState.validMoves.length,
+      currentPlayer: room.gameState.currentPlayer
     });
 
     // Now that both players are connected, start the game
@@ -286,6 +301,109 @@ class OthelloWebSocketServer {
     });
   }
 
+  private offerDraw(ws: WebSocket) {
+    const playerId = (ws as any).playerId;
+    const roomId = this.playerToRoom.get(playerId);
+
+    console.log(`[SERVER] Draw offer from player ${playerId} in room ${roomId}`);
+
+    if (!roomId) {
+      console.log("[SERVER] No room ID found for player offering draw");
+      return;
+    }
+
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      console.log("[SERVER] Room not found for draw offer");
+      return;
+    }
+
+    const player = room.players.get(playerId);
+    if (!player) {
+      console.log("[SERVER] Player not found in room for draw offer");
+      return;
+    }
+
+    console.log(`[SERVER] Setting drawOfferedBy to ${player.color}`);
+
+    // Set a flag in the game state
+    room.gameState = {
+      ...room.gameState,
+      drawOfferedBy: player.color,
+    };
+
+    // Broadcast the draw offer to all players
+    this.broadcastToRoom(roomId, {
+      type: "draw_offered",
+      player: player.color,
+    });
+    
+    console.log(`[SERVER] Draw offer broadcast to room ${roomId}`);
+  }
+
+  private acceptDraw(ws: WebSocket) {
+    const playerId = (ws as any).playerId;
+    const roomId = this.playerToRoom.get(playerId);
+
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.get(playerId);
+    if (!player) return;
+
+    // Verify there's an active draw offer and it wasn't made by this player
+    if (!room.gameState.drawOfferedBy || room.gameState.drawOfferedBy === player.color) {
+      return;
+    }
+
+    // End the game in a draw
+    room.gameState = {
+      ...room.gameState,
+      isGameOver: true,
+      winner: "draw",
+      drawOfferedBy: null,
+    };
+
+    // Broadcast the game over message
+    this.broadcastToRoom(roomId, {
+      type: "game_over",
+      winner: "draw",
+    });
+
+    // Broadcast the final game state
+    this.broadcastToRoom(roomId, {
+      type: "game_state",
+      gameState: room.gameState,
+    });
+  }
+
+  private declineDraw(ws: WebSocket) {
+    const playerId = (ws as any).playerId;
+    const roomId = this.playerToRoom.get(playerId);
+
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.get(playerId);
+    if (!player) return;
+
+    // Remove the draw offer
+    room.gameState = {
+      ...room.gameState,
+      drawOfferedBy: null,
+    };
+
+    // Broadcast the decline
+    this.broadcastToRoom(roomId, {
+      type: "draw_declined",
+      player: player.color,
+    });
+  }
+
   private handleDisconnect(ws: WebSocket) {
     const playerId = (ws as any).playerId;
     if (!playerId) return;
@@ -347,6 +465,10 @@ class OthelloWebSocketServer {
     board[4][3] = "black";
     board[4][4] = "white";
 
+    // Calculate valid moves for black
+    const validMoves = this.calculateValidMoves(board, "black");
+    console.log(`Initial game state created with ${validMoves.length} valid moves for black:`, validMoves);
+
     return {
       board,
       currentPlayer: "black",
@@ -354,10 +476,12 @@ class OthelloWebSocketServer {
       whiteScore: 2,
       isGameOver: false,
       winner: null,
-      validMoves: this.calculateValidMoves(board, "black"),
+      validMoves: validMoves,
       lastMove: null,
       gameMode: "friend",
+      moveHistory: [],
     };
+  }
   }
 
   private calculateValidMoves(

@@ -5,19 +5,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Users,
-  Copy,
-  Share,
+  Trophy,
+  Shield,
   Loader2,
   Info,
   X,
-  Link as LinkIcon,
+  ArrowRight,
+  Copy,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OthelloBoard } from "@/components/othello-board";
 import { GameInfo } from "@/components/game-info";
-import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
+import { useRankedMultiplayerGame } from "@/hooks/use-ranked-multiplayer-game";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -25,31 +27,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import type { RankSetType } from "@/shared/gameLogic";
 
-export default function FriendGamePage() {
+export default function RankedGamePage() {
   const {
-    websocketState,
     gameState,
     makeMove,
     restartGame,
     resignGame,
-    createGameRoom,
-    joinGameRoom,
-    leaveRoom,
     offerDraw,
     acceptDraw,
     declineDraw,
-  } = useMultiplayerGame();
+    joinRandomGame,
+    leaveRoom,
+    websocketState,
+  } = useRankedMultiplayerGame();
 
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(true);
-  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [selectedRank, setSelectedRank] = useState<RankSetType>("beginner");
   const [playerName, setPlayerName] = useState("");
-  const [roomIdToJoin, setRoomIdToJoin] = useState("");
   const [copiedMessage, setCopiedMessage] = useState(false);
-
-  // Game over state
+  // Handle game over state
   const [showGameOverDialog, setShowGameOverDialog] = useState(false);
   // Handle draw offer dialog
   const [showDrawOfferDialog, setShowDrawOfferDialog] = useState(false);
@@ -68,46 +67,48 @@ export default function FriendGamePage() {
     ) {
       setShowDrawOfferDialog(true);
       // Play a notification sound
-      try {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.volume = 0.5;
-        audio.play().catch((e) => console.log("Audio play failed:", e));
-      } catch (error) {
-        console.log("Audio failed:", error);
-      }
+      // try {
+      //   const audio = new Audio("/sounds/notification.mp3");
+      //   audio.volume = 0.5;
+      //   audio.play().catch((e) => console.log("Audio play failed:", e));
+      // } catch (error) {
+      //   console.log("Audio failed:", error);
+      // }
 
       // Show toast notification
-      toast({
-        title: "Draw Offer",
-        description: "Your opponent has offered a draw. Accept or decline?",
-        variant: "default",
-      });
     } else {
       setShowDrawOfferDialog(false);
     }
-  }, [gameState.drawOfferedBy, gameState.localPlayer]);
+  }, [gameState.drawOfferedBy, gameState.localPlayer, toast]);
 
-  // Handle room creation
-  const handleCreateRoom = () => {
-    createGameRoom(playerName || undefined);
+  const handleFindGame = () => {
+    joinRandomGame(
+      selectedRank,
+      getRankValue(selectedRank),
+      playerName || undefined
+    );
     setDialogOpen(false);
   };
 
-  // Handle joining a room
-  const handleJoinRoom = () => {
-    if (roomIdToJoin) {
-      joinGameRoom(roomIdToJoin, playerName || undefined);
-      setJoinDialogOpen(false);
-      setDialogOpen(false);
-    }
-  };
-
-  // Handle copying room ID to clipboard
   const handleCopyRoomId = () => {
     if (gameState.roomId) {
       navigator.clipboard.writeText(gameState.roomId);
       setCopiedMessage(true);
       setTimeout(() => setCopiedMessage(false), 2000);
+    }
+  };
+
+  // Get numeric rank value based on rank set type
+  const getRankValue = (rankType: RankSetType): number => {
+    switch (rankType) {
+      case "beginner":
+        return 500;
+      case "intermediate":
+        return 1500;
+      case "advanced":
+        return 2500;
+      default:
+        return 1000;
     }
   };
 
@@ -138,9 +139,9 @@ export default function FriendGamePage() {
                 </Button>
               </Link>
               <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 truncate">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
-                <span className="hidden sm:inline">Multiplayer Othello</span>
-                <span className="sm:hidden">Multiplayer</span>
+                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+                <span className="hidden sm:inline">Ranked Othello</span>
+                <span className="sm:hidden">Ranked</span>
               </h1>
             </div>
 
@@ -164,17 +165,13 @@ export default function FriendGamePage() {
                 </Badge>
               )}
 
-              {gameState.roomId && (
+              {gameState.rankSetType && (
                 <Badge
                   variant="outline"
-                  className="border-blue-500/40 text-blue-300 bg-blue-500/10 cursor-pointer text-xs"
-                  onClick={handleCopyRoomId}
+                  className="border-blue-500/40 text-blue-300 bg-blue-500/10 text-xs"
                 >
-                  <span className="hidden sm:inline">
-                    Room: {gameState.roomId}
-                  </span>
-                  <span className="sm:hidden">{gameState.roomId}</span>
-                  <Copy className="w-3 h-3 ml-1" />
+                  {gameState.rankSetType.charAt(0).toUpperCase() +
+                    gameState.rankSetType.slice(1)}
                 </Badge>
               )}
             </div>
@@ -205,7 +202,7 @@ export default function FriendGamePage() {
 
                   <div className="text-center">
                     <p className="text-slate-300 mb-4">
-                      Share this room code with your friend to join
+                      Looking for a {gameState.rankSetType} level opponent
                     </p>
 
                     {gameState.roomId && (
@@ -231,6 +228,10 @@ export default function FriendGamePage() {
                             Copied to clipboard!
                           </p>
                         )}
+                        <p className="text-xs text-slate-400 mt-2">
+                          You can share this code with a friend to play with
+                          them directly
+                        </p>
                       </div>
                     )}
 
@@ -238,7 +239,6 @@ export default function FriendGamePage() {
                       variant="outline"
                       className="mt-6"
                       onClick={() => {
-                        leaveRoom();
                         setDialogOpen(true);
                       }}
                     >
@@ -297,7 +297,7 @@ export default function FriendGamePage() {
                   whiteLabel={getPlayerName("white")}
                   isMultiplayer={true}
                   yourTurn={gameState.currentPlayer === gameState.localPlayer}
-                  gameMode="friend"
+                  gameMode="ranked"
                   winner={gameState.winner}
                   isGameOver={gameState.isGameOver}
                   drawOfferedBy={gameState.drawOfferedBy}
@@ -355,12 +355,12 @@ export default function FriendGamePage() {
         </AnimatePresence>
       </main>
 
-      {/* Create or Join Room Dialog */}
+      {/* Find Game Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-slate-800 text-white border-slate-600">
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-2">
-              <Users className="w-5 h-5" /> Multiplayer Othello
+              <Trophy className="w-5 h-5" /> Find a Ranked Game
             </DialogTitle>
           </DialogHeader>
 
@@ -379,71 +379,88 @@ export default function FriendGamePage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-              <Button
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-6 font-semibold"
-                onClick={handleCreateRoom}
-              >
-                <Share className="w-5 h-5 mr-2" />
-                Create New Room
-              </Button>
-
-              <div className="text-center">
-                <span className="text-slate-400 text-sm">OR</span>
-              </div>
-
-              <Button
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white py-6 font-semibold"
-                onClick={() => setJoinDialogOpen(true)}
-              >
-                <LinkIcon className="w-5 h-5 mr-2" />
-                Join Existing Room
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Join Room Dialog */}
-      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-        <DialogContent className="bg-slate-800 text-white border-slate-600">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Join a Room</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-300">
-                Enter Room Code
+                Skill Level
               </label>
-              <input
-                type="text"
-                value={roomIdToJoin}
-                onChange={(e) => {
-                  // Only allow uppercase letters and numbers, max 6 characters
-                  const value = e.target.value
-                    .toUpperCase()
-                    .replace(/[^A-Z0-9]/g, "")
-                    .substring(0, 6);
-                  setRoomIdToJoin(value);
-                }}
-                placeholder="e.g. ABCD12"
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                maxLength={6}
-              />
+
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  className={`p-4 rounded-lg flex items-center gap-3 border-2 transition-all ${
+                    selectedRank === "beginner"
+                      ? "border-emerald-500 bg-emerald-500/20"
+                      : "border-slate-600 hover:border-slate-500"
+                  }`}
+                  onClick={() => setSelectedRank("beginner")}
+                >
+                  <div className="bg-emerald-500/20 p-2 rounded-full">
+                    <Shield className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Beginner</div>
+                    <div className="text-sm text-slate-400">
+                      New to the game or casual player
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  className={`p-4 rounded-lg flex items-center gap-3 border-2 transition-all ${
+                    selectedRank === "intermediate"
+                      ? "border-blue-500 bg-blue-500/20"
+                      : "border-slate-600 hover:border-slate-500"
+                  }`}
+                  onClick={() => setSelectedRank("intermediate")}
+                >
+                  <div className="bg-blue-500/20 p-2 rounded-full">
+                    <Shield className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Intermediate</div>
+                    <div className="text-sm text-slate-400">
+                      Familiar with strategies and tactics
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  className={`p-4 rounded-lg flex items-center gap-3 border-2 transition-all ${
+                    selectedRank === "advanced"
+                      ? "border-purple-500 bg-purple-500/20"
+                      : "border-slate-600 hover:border-slate-500"
+                  }`}
+                  onClick={() => setSelectedRank("advanced")}
+                >
+                  <div className="bg-purple-500/20 p-2 rounded-full">
+                    <Shield className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Advanced</div>
+                    <div className="text-sm text-slate-400">
+                      Experienced player with deep understanding
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="flex justify-end gap-3 mt-4">
-            <Button variant="outline" onClick={() => setJoinDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={handleJoinRoom}
-              disabled={!roomIdToJoin || roomIdToJoin.length < 6}
+              onClick={handleFindGame}
+              className="gap-2"
+              disabled={websocketState.isConnecting}
             >
-              Join Room
+              {websocketState.isConnecting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  Find Game <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>
@@ -507,9 +524,11 @@ export default function FriendGamePage() {
 
       {/* Draw Offer Dialog */}
       <Dialog open={showDrawOfferDialog} onOpenChange={setShowDrawOfferDialog}>
-        <DialogContent className="bg-slate-800 text-white border-slate-600">
+        <DialogContent className="bg-slate-800 text-white border-slate-600 border-2 border-yellow-500">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Draw Offered</DialogTitle>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <span className="text-yellow-500">⚠</span> Draw Offered
+            </DialogTitle>
           </DialogHeader>
 
           <div className="py-6 text-center">
@@ -533,6 +552,7 @@ export default function FriendGamePage() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    console.log("Declining draw...");
                     declineDraw();
                     setShowDrawOfferDialog(false);
                     toast({
@@ -549,6 +569,7 @@ export default function FriendGamePage() {
                   variant="default"
                   className="bg-yellow-600 hover:bg-yellow-700"
                   onClick={() => {
+                    console.log("Accepting draw...");
                     acceptDraw();
                     setShowDrawOfferDialog(false);
                     toast({

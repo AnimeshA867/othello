@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 // Dynamically import 3D component to avoid SSR issues
 const OthelloPiece3D = dynamic(
   () =>
-    import("./othello-piece-3d").then((mod) => ({
+    import("./othello-piece-3d.tsx").then((mod) => ({
       default: mod.OthelloPiece3D,
     })),
   {
@@ -84,6 +84,10 @@ export function OthelloBoard({
   const [flippingPieces, setFlippingPieces] = useState<Set<string>>(new Set());
   const [previousBoard, setPreviousBoard] = useState<Player[][]>(board);
   const [use3D, setUse3D] = useState(true);
+  const [invalidMove, setInvalidMove] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
 
   // Error boundary for 3D component
   useEffect(() => {
@@ -142,13 +146,25 @@ export function OthelloBoard({
     return flippingPieces.has(`${row}-${col}`);
   };
 
+  const handleMove = (row: number, col: number) => {
+    if (disabled) return;
+    if (!isValidMove(row, col)) {
+      console.log(`Invalid move attempted at ${row}, ${col}`);
+      // Show visual feedback for invalid move
+      setInvalidMove({ row, col });
+      setTimeout(() => setInvalidMove(null), 1000);
+      return;
+    }
+    console.log(`Making move at ${row}, ${col}`);
+    onMove(row, col);
+  };
+
   return (
     <div className={cn("relative w-[80%] sm:w-full mx-auto p-4", className)}>
       {/* Board Grid */}
       <div
         className={cn(
-          "grid grid-cols-8 gap-0.5 sm:gap-1 lg:gap-2 p-1 sm:p-2 lg:p-4 xl:p-8 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-modern border border-slate-500 sm:border-2 transition-all duration-300 w-full aspect-square",
-          isAiThinking && "opacity-80 scale-[0.98]"
+          "grid grid-cols-8 gap-0.5 sm:gap-1 lg:gap-2 p-1 sm:p-2 lg:p-4 xl:p-8 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-modern border border-slate-500 sm:border-2 transition-all duration-300 w-full aspect-square"
         )}
       >
         {board.map((row, rowIndex) =>
@@ -164,28 +180,45 @@ export function OthelloBoard({
                   : "bg-emerald-700 hover:bg-emerald-600",
                 // Highlight valid moves
                 isValidMove(rowIndex, colIndex) &&
-                  !disabled &&
                   "ring-3 ring-yellow-400 shadow-lg shadow-yellow-400/30",
                 // Highlight last move
                 isLastMove(rowIndex, colIndex) &&
                   "ring-3 ring-blue-400 shadow-lg shadow-blue-400/30",
-                // Disabled state
-                disabled && "cursor-not-allowed opacity-60"
+                // Cursor style
+                isValidMove(rowIndex, colIndex) && !disabled
+                  ? "cursor-pointer"
+                  : "cursor-default"
+                // Remove disabled visual state
               )}
-              onClick={() => !disabled && onMove(rowIndex, colIndex)}
+              onClick={() => handleMove(rowIndex, colIndex)}
               disabled={disabled}
-              whileHover={!disabled ? { scale: 1.05 } : {}}
-              whileTap={!disabled ? { scale: 0.95 } : {}}
+              whileHover={{ scale: 1.05 }}
+              whileTap={!disabled ? { scale: 0.95 } : { scale: 1 }}
             >
+              {/* Invalid move indicator */}
+              {invalidMove &&
+                invalidMove.row === rowIndex &&
+                invalidMove.col === colIndex && (
+                  <motion.div
+                    className="absolute inset-0 flex items-center justify-center z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <div className="w-full h-full bg-red-500/30 absolute" />
+                    <div className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-red-500 shadow-lg animate-pulse" />
+                  </motion.div>
+                )}
+
               {/* Valid move indicator */}
-              {isValidMove(rowIndex, colIndex) && !disabled && (
+              {isValidMove(rowIndex, colIndex) && (
                 <motion.div
                   className="absolute inset-0 flex items-center justify-center"
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0 }}
                 >
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 lg:w-3 lg:h-3 xl:w-4 xl:h-4 bg-yellow-300 rounded-full shadow-lg animate-pulse border border-yellow-500" />
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 lg:w-3 lg:h-3 xl:w-4 xl:h-4 rounded-full shadow-lg animate-pulse border bg-yellow-300 border-yellow-500" />
                 </motion.div>
               )}
 
@@ -207,7 +240,7 @@ export function OthelloBoard({
                       duration: 0.4,
                     }}
                   >
-                    {use3D ? (
+                    {use3D && cell ? (
                       <OthelloPiece3D
                         color={cell}
                         isFlipping={isFlipping(rowIndex, colIndex)}

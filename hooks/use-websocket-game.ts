@@ -9,12 +9,24 @@ export type WebSocketMessage =
   | { type: "make_move"; row: number; col: number }
   | { type: "restart_game" }
   | { type: "resign_game" }
-  | { type: "player_joined"; player: Player; playerName?: string }
+  | { type: "offer_draw" }
+  | { type: "accept_draw" }
+  | { type: "decline_draw" }
+  | {
+      type: "player_joined";
+      player: Player;
+      playerName?: string;
+      rank?: number;
+    }
   | { type: "room_created"; roomId: string; player: Player }
   | { type: "game_state"; gameState: any }
   | { type: "move_made"; row: number; col: number; player: Player }
   | { type: "game_restarted" }
   | { type: "player_resigned"; player: Player }
+  | { type: "draw_offered"; player: Player }
+  | { type: "draw_declined"; player: Player }
+  | { type: "game_over"; winner: "black" | "white" | "draw" }
+  | { type: "player_disconnected" }
   | {
       type: "game_ready";
       roomId: string;
@@ -23,7 +35,13 @@ export type WebSocketMessage =
   | { type: "error"; message: string }
   | { type: "room_full" }
   | { type: "invalid_move" }
-  | { type: "waiting_for_player" };
+  | { type: "waiting_for_player" }
+  | {
+      type: "join_random";
+      rankSetType: string;
+      rank: number;
+      playerName?: string;
+    };
 
 export interface WebSocketState {
   isConnected: boolean;
@@ -42,6 +60,9 @@ interface UseWebSocketGameReturn {
   makeMove: (row: number, col: number) => void;
   restartGame: () => void;
   resignGame: () => void;
+  offerDraw: () => void;
+  acceptDraw: () => void;
+  declineDraw: () => void;
   disconnect: () => void;
   onMessage: (callback: (message: WebSocketMessage) => void) => () => void;
 }
@@ -75,6 +96,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           ? `wss://${window.location.host}/api/websocket`
           : "ws://localhost:3003";
 
+      console.log(`Connecting to WebSocket at ${wsUrl}`);
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
@@ -91,13 +113,32 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       ws.current.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log("Received WebSocket message:", message);
           handleMessage(message);
         } catch (error) {
           console.error("Failed to parse WebSocket message:", error);
+          console.error("Raw message data:", event.data);
         }
       };
 
+      ws.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setWebSocketState((prev) => ({
+          ...prev,
+          isConnecting: false,
+          error: "Failed to connect to game server",
+        }));
+      };
+
       ws.current.onclose = (event) => {
+        console.log(
+          `WebSocket closed with code ${event.code}. Reason: ${event.reason}`
+        );
+        setWebSocketState((prev) => ({
+          ...prev,
+          isConnected: false,
+          isConnecting: false,
+        }));
         console.log("WebSocket disconnected:", event.code, event.reason);
         setWebSocketState((prev) => ({
           ...prev,
@@ -192,13 +233,27 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     messageCallbacks.current.forEach((callback) => callback(message));
   }, []);
 
-  const sendMessage = useCallback((message: WebSocketMessage) => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(message));
-    } else {
-      console.warn("WebSocket is not connected");
-    }
-  }, []);
+  const sendMessage = useCallback(
+    (message: WebSocketMessage) => {
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        console.log("Sending WebSocket message:", message);
+        ws.current.send(JSON.stringify(message));
+      } else {
+        console.warn("WebSocket is not connected, attempting to connect first");
+        connect();
+        // Queue message to be sent once connection is established
+        setTimeout(() => {
+          if (ws.current?.readyState === WebSocket.OPEN) {
+            console.log("Sending delayed message:", message);
+            ws.current.send(JSON.stringify(message));
+          } else {
+            console.error("Failed to send message after reconnection attempt");
+          }
+        }, 1000);
+      }
+    },
+    [connect]
+  );
 
   const createRoom = useCallback(
     (playerName?: string) => {
@@ -233,6 +288,21 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
 
   const resignGame = useCallback(() => {
     sendMessage({ type: "resign_game" });
+  }, [sendMessage]);
+
+  const offerDraw = useCallback(() => {
+    console.log("Sending offer_draw message");
+    sendMessage({ type: "offer_draw" });
+  }, [sendMessage]);
+
+  const acceptDraw = useCallback(() => {
+    console.log("Sending accept_draw message");
+    sendMessage({ type: "accept_draw" });
+  }, [sendMessage]);
+
+  const declineDraw = useCallback(() => {
+    console.log("Sending decline_draw message");
+    sendMessage({ type: "decline_draw" });
   }, [sendMessage]);
 
   const disconnect = useCallback(() => {
@@ -276,6 +346,9 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     makeMove,
     restartGame,
     resignGame,
+    offerDraw,
+    acceptDraw,
+    declineDraw,
     disconnect,
     onMessage,
   };

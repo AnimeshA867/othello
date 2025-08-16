@@ -13,7 +13,7 @@ export interface GameState {
   gameMode: GameMode;
   difficulty?: Difficulty;
   isGameOver: boolean;
-  winner: Player;
+  winner: Player | "draw" | null;
   blackScore: number;
   whiteScore: number;
   validMoves: Position[];
