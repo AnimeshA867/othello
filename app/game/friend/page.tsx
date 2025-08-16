@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getNameIfAny } from "@/lib/othello-game";
 
 export default function FriendGamePage() {
   const {
@@ -42,10 +43,12 @@ export default function FriendGamePage() {
     declineDraw,
   } = useMultiplayerGame();
 
+  const name = getNameIfAny();
+
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(true);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(name);
   const [roomIdToJoin, setRoomIdToJoin] = useState("");
   const [copiedMessage, setCopiedMessage] = useState(false);
 
@@ -118,6 +121,12 @@ export default function FriendGamePage() {
     }
     return gameState.opponentName || "Opponent";
   };
+
+  useEffect(() => {
+    if (playerName) {
+      localStorage.setItem("playerName", playerName);
+    }
+  }, [playerName]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700">

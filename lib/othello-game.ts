@@ -472,3 +472,8 @@ export class OthelloGame {
     }
   }
 }
+
+export const getNameIfAny = () => {
+  const name = localStorage.getItem("playerName");
+  return name ? name : "";
+};

@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { RankSetType } from "@/shared/gameLogic";
+import { getNameIfAny } from "@/lib/othello-game";
 
 export default function RankedGamePage() {
   const {
@@ -44,9 +45,12 @@ export default function RankedGamePage() {
   } = useRankedMultiplayerGame();
 
   const { toast } = useToast();
+
+  const name = getNameIfAny();
+
   const [dialogOpen, setDialogOpen] = useState(true);
   const [selectedRank, setSelectedRank] = useState<RankSetType>("beginner");
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(name);
   const [copiedMessage, setCopiedMessage] = useState(false);
   // Handle game over state
   const [showGameOverDialog, setShowGameOverDialog] = useState(false);
@@ -111,6 +115,12 @@ export default function RankedGamePage() {
         return 1000;
     }
   };
+
+  useEffect(() => {
+    if (playerName) {
+      localStorage.setItem("playerName", playerName);
+    }
+  }, [playerName]);
 
   // Get display name for player's color
   const getPlayerName = (color: "black" | "white") => {
