@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Player, Position } from "@/lib/othello-game";
+import { config } from "@/lib/config";
 
 export type WebSocketMessage =
   | { type: "join_room"; roomId: string; playerName?: string }
@@ -90,14 +91,8 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     setWebSocketState((prev) => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      // Use appropriate WebSocket URL based on environment
-      const devHost = window.location.hostname;
-      // gives "192.168.1.78" if accessed from LAN, "localhost" if local
-
-      const wsUrl =
-        process.env.NODE_ENV === "production"
-          ? `wss://${window.location.host}/api/websocket`
-          : `ws://${devHost}:3003`;
+      // Use the centralized config to get the WebSocket URL
+      const wsUrl = config.getWebSocketUrl();
 
       console.log(`Connecting to WebSocket at ${wsUrl}`);
       ws.current = new WebSocket(wsUrl);

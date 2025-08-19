@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "server": "node server.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
+    "start:server": "ts-node server/index.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",

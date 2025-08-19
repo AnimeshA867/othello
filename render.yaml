@@ -1,0 +1,12 @@
+services:
+  # WebSocket Backend Service
+  - type: web
+    name: othello-websocket-server
+    env: node
+    buildCommand: npm install
+    startCommand: npm run start:server
+    envVars:
+      - key: PORT
+        value: 10000  # Render assigns a port, but you can specify it here
+      - key: NODE_ENV
+        value: production

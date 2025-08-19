@@ -4,7 +4,7 @@
  */
 
 // Check if we're running on the client side
-export const isClient = typeof window !== 'undefined';
+export const isClient = typeof window !== "undefined";
 
 /**
  * Safely get an item from localStorage
@@ -12,9 +12,12 @@ export const isClient = typeof window !== 'undefined';
  * @param defaultValue Optional default value if key doesn't exist or in server context
  * @returns The stored value or defaultValue
  */
-export const getStorageItem = (key: string, defaultValue: string = ''): string => {
+export const getStorageItem = (
+  key: string,
+  defaultValue: string = ""
+): string => {
   if (!isClient) return defaultValue;
-  
+
   try {
     const item = localStorage.getItem(key);
     return item !== null ? item : defaultValue;
@@ -32,7 +35,7 @@ export const getStorageItem = (key: string, defaultValue: string = ''): string =
  */
 export const setStorageItem = (key: string, value: string): boolean => {
   if (!isClient) return false;
-  
+
   try {
     localStorage.setItem(key, value);
     return true;
@@ -49,7 +52,7 @@ export const setStorageItem = (key: string, value: string): boolean => {
  */
 export const removeStorageItem = (key: string): boolean => {
   if (!isClient) return false;
-  
+
   try {
     localStorage.removeItem(key);
     return true;
