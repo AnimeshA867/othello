@@ -91,10 +91,13 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
 
     try {
       // Use appropriate WebSocket URL based on environment
+      const devHost = window.location.hostname;
+      // gives "192.168.1.78" if accessed from LAN, "localhost" if local
+
       const wsUrl =
         process.env.NODE_ENV === "production"
           ? `wss://${window.location.host}/api/websocket`
-          : "ws://localhost:3003";
+          : `ws://${devHost}:3003`;
 
       console.log(`Connecting to WebSocket at ${wsUrl}`);
       ws.current = new WebSocket(wsUrl);

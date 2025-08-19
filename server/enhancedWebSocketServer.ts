@@ -32,7 +32,7 @@ class EnhancedOthelloWebSocketServer {
   private wss: WebSocketServer;
 
   constructor(port: number = 3003) {
-    this.wss = new WebSocketServer({ port });
+    this.wss = new WebSocketServer({ port, host: "0.0.0.0" });
     console.log(`Enhanced WebSocket server running on port ${port}`);
 
     this.wss.on("connection", (ws: ExtendedWebSocket) => {
