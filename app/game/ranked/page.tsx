@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OthelloBoard } from "@/components/othello-board";
 import { GameInfo } from "@/components/game-info";
+import { setStorageItem } from "@/lib/storage-helpers";
 import { useRankedMultiplayerGame } from "@/hooks/use-ranked-multiplayer-game";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -118,7 +119,7 @@ export default function RankedGamePage() {
 
   useEffect(() => {
     if (playerName) {
-      localStorage.setItem("playerName", playerName);
+      setStorageItem("playerName", playerName);
     }
   }, [playerName]);
 

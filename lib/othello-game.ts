@@ -1,6 +1,7 @@
 export type Player = "black" | "white" | null;
 export type GameMode = "ai" | "friend";
 export type Difficulty = "easy" | "medium" | "hard";
+import { getStorageItem } from "./storage-helpers";
 
 export interface Position {
   row: number;
@@ -474,6 +475,6 @@ export class OthelloGame {
 }
 
 export const getNameIfAny = () => {
-  const name = localStorage.getItem("playerName");
+  const name = getStorageItem("playerName");
   return name ? name : "";
 };

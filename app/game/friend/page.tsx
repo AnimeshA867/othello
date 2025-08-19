@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { OthelloBoard } from "@/components/othello-board";
 import { GameInfo } from "@/components/game-info";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
+import { setStorageItem } from "@/lib/storage-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -124,7 +125,7 @@ export default function FriendGamePage() {
 
   useEffect(() => {
     if (playerName) {
-      localStorage.setItem("playerName", playerName);
+      setStorageItem("playerName", playerName);
     }
   }, [playerName]);
 
