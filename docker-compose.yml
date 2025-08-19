@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  websocket-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3003:10000"
+    environment:
+      - NODE_ENV=development
+      - PORT=10000
+    volumes:
+      # For development only - allows hot reloading
+      - ./server:/app/server
+      - ./shared:/app/shared
+    command: npm run start:server

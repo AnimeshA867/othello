@@ -1,0 +1,25 @@
+# Git files
+.git
+.gitignore
+
+# Node.js dependencies
+node_modules
+npm-debug.log
+
+# Build directories
+.next
+out
+
+# Environment variables
+.env*
+!.env.example
+
+# Editor specific files
+.vscode
+.idea
+
+# Other unnecessary files
+README.md
+*.md
+*.log
+.DS_Store
