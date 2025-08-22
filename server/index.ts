@@ -1,12 +1,49 @@
 import EnhancedOthelloWebSocketServer from "./enhancedWebSocketServer";
+import http from "http";
 
 // Start the server
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3003;
 
 try {
   console.log(`Starting Othello server on port ${port}...`);
-  const server = new EnhancedOthelloWebSocketServer(port);
-  console.log(`Othello server started on port ${port}`);
+
+  // Create an HTTP server to handle the upgrade
+  const httpServer = http.createServer((req, res) => {
+    // Add CORS headers to all responses
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+
+    // Basic health check endpoint
+    if (req.url === "/health") {
+      res.writeHead(200);
+      res.end("OK");
+      return;
+    }
+
+    // Handle CORS preflight
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // For all other requests, return a simple message
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Othello WebSocket Server is running");
+  });
+
+  // Start the HTTP server
+  httpServer.listen(port, () => {
+    console.log(`HTTP server started on port ${port}`);
+
+    // Initialize the WebSocket server with the HTTP server
+    const wsServer = new EnhancedOthelloWebSocketServer(httpServer);
+    console.log(`WebSocket server attached to HTTP server`);
+  });
 } catch (error) {
   console.error("Failed to start Othello server:", error);
   process.exit(1);

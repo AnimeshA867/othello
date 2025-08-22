@@ -18,6 +18,7 @@ import {
   RankSetType,
   isValidRankSetType,
 } from "../shared/gameLogic";
+import http from "http";
 
 interface WebSocketMessage {
   type: string;
@@ -31,9 +32,17 @@ interface ExtendedWebSocket extends WebSocket {
 class EnhancedOthelloWebSocketServer {
   private wss: WebSocketServer;
 
-  constructor(port: number = 3003) {
-    this.wss = new WebSocketServer({ port, host: "0.0.0.0" });
-    console.log(`Enhanced WebSocket server running on port ${port}`);
+  constructor(serverOrPort: http.Server | number = 3003) {
+    if (typeof serverOrPort === "number") {
+      // Use port number
+      const port = serverOrPort;
+      this.wss = new WebSocketServer({ port, host: "0.0.0.0" });
+      console.log(`Enhanced WebSocket server running on port ${port}`);
+    } else {
+      // Use HTTP server
+      this.wss = new WebSocketServer({ server: serverOrPort });
+      console.log(`Enhanced WebSocket server attached to HTTP server`);
+    }
 
     this.wss.on("connection", (ws: ExtendedWebSocket) => {
       console.log("New client connected");
