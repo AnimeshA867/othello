@@ -46,8 +46,7 @@ export default function RankedGamePage() {
   } = useRankedMultiplayerGame();
 
   const { toast } = useToast();
-
-  const name = "ANimesh";
+  const name = getNameIfAny();
 
   const [dialogOpen, setDialogOpen] = useState(true);
   const [selectedRank, setSelectedRank] = useState<RankSetType>("beginner");
