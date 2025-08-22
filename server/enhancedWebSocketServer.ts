@@ -47,13 +47,19 @@ class EnhancedOthelloWebSocketServer {
     this.wss.on("connection", (ws: ExtendedWebSocket) => {
       console.log("New client connected");
 
+      // Assign a unique ID to this connection for tracking
+      const connectionId = uuidv4().substring(0, 8);
+      console.log(`Assigned connection ID: ${connectionId}`);
+
       ws.on("message", async (data: Buffer) => {
         try {
           const message: WebSocketMessage = JSON.parse(data.toString());
-          console.log(`Received message: ${JSON.stringify(message)}`);
+          console.log(
+            `[${connectionId}] Received message: ${JSON.stringify(message)}`
+          );
           await this.handleMessage(ws, message);
         } catch (error) {
-          console.error("Failed to parse message:", error);
+          console.error(`[${connectionId}] Failed to parse message:`, error);
           this.sendError(ws, "Invalid message format");
         }
       });
@@ -569,7 +575,18 @@ class EnhancedOthelloWebSocketServer {
 
   private sendMessage(ws: WebSocket, message: any) {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
+      try {
+        console.log(`Sending message: ${JSON.stringify(message)}`);
+        ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error(`Error sending message: ${error}`);
+      }
+    } else {
+      console.warn(
+        `Cannot send message, socket is not open (readyState=${
+          ws.readyState
+        }): ${JSON.stringify(message)}`
+      );
     }
   }
 

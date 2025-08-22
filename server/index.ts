@@ -43,6 +43,10 @@ try {
     // Initialize the WebSocket server with the HTTP server
     const wsServer = new EnhancedOthelloWebSocketServer(httpServer);
     console.log(`WebSocket server attached to HTTP server`);
+
+    // Log important information about the environment
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`Host: ${process.env.HOST || "0.0.0.0"}`);
   });
 } catch (error) {
   console.error("Failed to start Othello server:", error);

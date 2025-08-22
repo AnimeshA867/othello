@@ -84,9 +84,27 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   const messageCallbacks = useRef<Set<(message: WebSocketMessage) => void>>(
     new Set()
   );
+  // Message queue for storing messages that couldn't be sent immediately
+  const messageQueue = useRef<WebSocketMessage[]>([]);
 
   const connect = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) return;
+    // If there's an existing connection, close it properly first
+    if (ws.current) {
+      if (ws.current.readyState === WebSocket.OPEN) {
+        console.log("WebSocket already connected");
+        return;
+      } else if (ws.current.readyState === WebSocket.CONNECTING) {
+        console.log("WebSocket already connecting");
+        return;
+      } else {
+        console.log("Closing existing WebSocket connection");
+        try {
+          ws.current.close(1000, "Reconnecting");
+        } catch (error) {
+          console.error("Error closing existing connection:", error);
+        }
+      }
+    }
 
     setWebSocketState((prev) => ({ ...prev, isConnecting: true, error: null }));
 
@@ -106,6 +124,21 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           error: null,
         }));
         reconnectAttempts.current = 0;
+
+        // Process any queued messages
+        if (messageQueue.current.length > 0) {
+          console.log(
+            `Processing ${messageQueue.current.length} queued messages`
+          );
+          messageQueue.current.forEach((message) => {
+            if (ws.current?.readyState === WebSocket.OPEN) {
+              console.log("Sending queued message:", message);
+              ws.current.send(JSON.stringify(message));
+            }
+          });
+          // Clear the queue after processing
+          messageQueue.current = [];
+        }
       };
 
       ws.current.onmessage = (event) => {
@@ -121,38 +154,71 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
 
       ws.current.onerror = (error) => {
         console.error("WebSocket error:", error);
+        // Add more detailed debugging information
+        console.error("WebSocket URL:", wsUrl);
+        console.error("WebSocket readyState:", ws.current?.readyState);
+
         setWebSocketState((prev) => ({
           ...prev,
           isConnecting: false,
-          error: "Failed to connect to game server",
+          error: "Failed to connect to game server. See console for details.",
         }));
       };
 
       ws.current.onclose = (event) => {
         console.log(
-          `WebSocket closed with code ${event.code}. Reason: ${event.reason}`
+          `WebSocket closed with code ${event.code}. Reason: ${
+            event.reason || "No reason provided"
+          }`
         );
+
+        let errorMessage = null;
+        if (event.code === 1006) {
+          errorMessage =
+            "Connection closed abnormally. The server may be down or unreachable.";
+        } else if (event.code === 1015) {
+          errorMessage =
+            "Connection failed due to TLS handshake failure. Check if WSS is properly configured.";
+        } else if (event.code !== 1000) {
+          errorMessage = `Connection closed with code ${event.code}${
+            event.reason ? ": " + event.reason : ""
+          }`;
+        }
+
         setWebSocketState((prev) => ({
           ...prev,
           isConnected: false,
           isConnecting: false,
-        }));
-        console.log("WebSocket disconnected:", event.code, event.reason);
-        setWebSocketState((prev) => ({
-          ...prev,
-          isConnected: false,
-          isConnecting: false,
+          error: errorMessage,
         }));
 
         // Attempt to reconnect if not a normal closure
         if (
           event.code !== 1000 &&
+          event.code !== 1001 &&
           reconnectAttempts.current < maxReconnectAttempts
         ) {
+          console.log(
+            `Attempting to reconnect (attempt ${
+              reconnectAttempts.current + 1
+            }/${maxReconnectAttempts})...`
+          );
+
+          // Exponential backoff for reconnection
+          const delay = Math.min(
+            1000 * Math.pow(2, reconnectAttempts.current),
+            10000
+          );
+          console.log(`Reconnecting in ${delay}ms`);
+
           setTimeout(() => {
             reconnectAttempts.current++;
             connect();
-          }, Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000));
+          }, delay);
+        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
+          console.error(
+            `Maximum reconnection attempts (${maxReconnectAttempts}) reached`
+          );
         }
       };
 
@@ -235,30 +301,45 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     (message: WebSocketMessage) => {
       if (ws.current?.readyState === WebSocket.OPEN) {
         console.log("Sending WebSocket message:", message);
-        ws.current.send(JSON.stringify(message));
+        try {
+          ws.current.send(JSON.stringify(message));
+        } catch (error) {
+          console.error("Error sending message:", error);
+          // Queue the message for retry
+          messageQueue.current.push(message);
+        }
       } else {
-        console.warn("WebSocket is not connected, attempting to connect first");
-        connect();
-        // Queue message to be sent once connection is established
-        setTimeout(() => {
-          if (ws.current?.readyState === WebSocket.OPEN) {
-            console.log("Sending delayed message:", message);
-            ws.current.send(JSON.stringify(message));
-          } else {
-            console.error("Failed to send message after reconnection attempt");
-          }
-        }, 1000);
+        console.warn(
+          "WebSocket is not connected, queueing message and attempting to connect"
+        );
+        // Add to message queue
+        messageQueue.current.push(message);
+
+        // Try to connect if not already connecting
+        if (!websocketState.isConnecting) {
+          connect();
+        }
       }
     },
-    [connect]
+    [connect, websocketState.isConnecting]
   );
 
   const createRoom = useCallback(
     (playerName?: string) => {
+      console.log(
+        `Creating room with player name: ${playerName || "anonymous"}`
+      );
+
+      // Always queue the message first to ensure it gets sent
+      messageQueue.current.push({ type: "create_room", playerName });
+
       if (!websocketState.isConnected) {
+        console.log("WebSocket not connected, connecting first");
         connect();
+      } else {
+        // If already connected, send the message immediately
+        sendMessage({ type: "create_room", playerName });
       }
-      sendMessage({ type: "create_room", playerName });
     },
     [websocketState.isConnected, connect, sendMessage]
   );

@@ -23,6 +23,15 @@ export const config = {
     const env = isProduction ? "production" : "development";
     const { protocol, host, port } = config.wsServer[env];
 
-    return port ? `${protocol}://${host}:${port}` : `${protocol}://${host}`;
+    console.log(
+      `Building WebSocket URL with protocol: ${protocol}, host: ${host}, port: ${
+        port || "none"
+      }`
+    );
+    const url = port
+      ? `${protocol}://${host}:${port}`
+      : `${protocol}://${host}`;
+    console.log(`Final WebSocket URL: ${url}`);
+    return url;
   },
 };
