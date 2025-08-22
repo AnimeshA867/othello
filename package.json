@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:server": "tsc -p tsconfig.server.json",
     "start": "next start",
     "lint": "next lint",
     "server": "node server.js",
