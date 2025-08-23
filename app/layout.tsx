@@ -1,38 +1,40 @@
 import type React from "react";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/toaster";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Othello Master - Play the Classic Strategy Game Online",
+  title: "Othello - Classic Strategy Game",
   description:
-    "Play Othello (Reversi) online with AI or friends. Beautiful Chess.com-inspired interface with smooth animations and multiple difficulty levels.",
-  keywords:
-    "othello, reversi, board game, strategy game, AI, multiplayer, online game",
+    "Play the classic Othello strategy game online. Challenge AI, friends, or random opponents.",
+  generator: "v0.app",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
+    <html lang="en">
+      <head>
+        <style>{`
+html {
+  font-family: ${GeistSans.style.fontFamily};
+  --font-sans: ${GeistSans.variable};
+  --font-mono: ${GeistMono.variable};
+}
+        `}</style>
+      </head>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <body className="font-sans antialiased">
           {children}
           <Toaster />
-        </ThemeProvider>
-      </body>
+        </body>
+      </ThemeProvider>
     </html>
   );
 }

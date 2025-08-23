@@ -5,19 +5,31 @@ const uuid_1 = require("uuid");
 const roomController_1 = require("./controllers/roomController");
 const gameLogic_1 = require("../shared/gameLogic");
 class EnhancedOthelloWebSocketServer {
-    constructor(port = 3003) {
-        this.wss = new ws_1.WebSocketServer({ port });
-        console.log(`Enhanced WebSocket server running on port ${port}`);
+    constructor(serverOrPort = 3003) {
+        if (typeof serverOrPort === "number") {
+            // Use port number
+            const port = serverOrPort;
+            this.wss = new ws_1.WebSocketServer({ port, host: "0.0.0.0" });
+            console.log(`Enhanced WebSocket server running on port ${port}`);
+        }
+        else {
+            // Use HTTP server
+            this.wss = new ws_1.WebSocketServer({ server: serverOrPort });
+            console.log(`Enhanced WebSocket server attached to HTTP server`);
+        }
         this.wss.on("connection", (ws) => {
             console.log("New client connected");
+            // Assign a unique ID to this connection for tracking
+            const connectionId = (0, uuid_1.v4)().substring(0, 8);
+            console.log(`Assigned connection ID: ${connectionId}`);
             ws.on("message", async (data) => {
                 try {
                     const message = JSON.parse(data.toString());
-                    console.log(`Received message: ${JSON.stringify(message)}`);
+                    console.log(`[${connectionId}] Received message: ${JSON.stringify(message)}`);
                     await this.handleMessage(ws, message);
                 }
                 catch (error) {
-                    console.error("Failed to parse message:", error);
+                    console.error(`[${connectionId}] Failed to parse message:`, error);
                     this.sendError(ws, "Invalid message format");
                 }
             });
@@ -247,9 +259,6 @@ class EnhancedOthelloWebSocketServer {
     restartGame(ws) {
         // Implementation similar to existing websocket-server.ts
     }
-    resignGame(ws) {
-        // Implementation similar to existing websocket-server.ts
-    }
     getRoomInfo(ws, roomId) {
         try {
             const room = (0, roomController_1.getRoom)(roomId);
@@ -276,173 +285,183 @@ class EnhancedOthelloWebSocketServer {
             this.sendError(ws, "Failed to get room info");
         }
     }
-    offerDraw(ws) {
+    resignGame(ws) {
         const playerId = ws.playerId;
-        if (!playerId) {
-            this.sendError(ws, "Player not found");
+        const room = (0, roomController_1.getRoomByPlayerId)(playerId);
+        if (!room) {
+            this.sendError(ws, "Room not found");
             return;
         }
-        try {
-            const room = (0, roomController_1.getRoomByPlayerId)(playerId);
-            if (!room) {
-                this.sendError(ws, "Room not found");
-                return;
-            }
-            const player = room.players.find(p => p.id === playerId);
-            if (!player) {
-                this.sendError(ws, "Player not found in room");
-                return;
-            }
-            console.log(`[SERVER] Player ${player.name || player.id} (${player.color}) offered a draw`);
-            // Set draw offer in game state
-            room.gameState.drawOfferedBy = player.color;
-            (0, roomController_1.updateGameState)(room.roomId, room.gameState);
-            // Broadcast to room
-            this.broadcastToRoom(room.roomId, {
-                type: "draw_offered",
-                player: player.color,
-            });
+        const player = room.players.find((p) => p.id === playerId);
+        if (!player)
+            return;
+        this.broadcastToRoom(room.roomId, {
+            type: "player_resigned",
+            player: player.color,
+        });
+    }
+    offerDraw(ws) {
+        const playerId = ws.playerId;
+        const room = (0, roomController_1.getRoomByPlayerId)(playerId);
+        if (!room) {
+            this.sendError(ws, "Room not found");
+            return;
         }
-        catch (error) {
-            console.error("Error offering draw:", error);
-            this.sendError(ws, "Failed to offer draw");
+        const roomId = room.roomId;
+        console.log(`[SERVER] Draw offer from player ${playerId} in room ${roomId}`);
+        if (!roomId) {
+            console.log("[SERVER] No room ID found for player offering draw");
+            return;
         }
+        const player = room.players.find((p) => p.id === playerId);
+        if (!player) {
+            console.log("[SERVER] Player not found in room for draw offer");
+            return;
+        }
+        console.log(`[SERVER] Setting drawOfferedBy to ${player.color}`);
+        // Set a flag in the game state
+        room.gameState = {
+            ...room.gameState,
+            drawOfferedBy: player.color,
+        };
+        // Broadcast the draw offer to all players
+        this.broadcastToRoom(roomId, {
+            type: "draw_offered",
+            player: player.color,
+        });
+        console.log(`[SERVER] Draw offer broadcast to room ${roomId}`);
     }
     acceptDraw(ws) {
         const playerId = ws.playerId;
-        if (!playerId) {
-            this.sendError(ws, "Player not found");
+        const room = (0, roomController_1.getRoomByPlayerId)(playerId);
+        if (!room) {
+            this.sendError(ws, "Room not found");
             return;
         }
-        try {
-            const room = (0, roomController_1.getRoomByPlayerId)(playerId);
-            if (!room) {
-                this.sendError(ws, "Room not found");
-                return;
-            }
-            const player = room.players.find(p => p.id === playerId);
-            if (!player) {
-                this.sendError(ws, "Player not found in room");
-                return;
-            }
-            // Verify there's an active draw offer and it wasn't made by this player
-            if (!room.gameState.drawOfferedBy || room.gameState.drawOfferedBy === player.color) {
-                this.sendError(ws, "No active draw offer to accept");
-                return;
-            }
-            console.log(`[SERVER] Player ${player.name || player.id} (${player.color}) accepted the draw`);
-            // End game with draw
-            room.gameState.isGameOver = true;
-            room.gameState.winner = "draw";
-            room.gameState.drawOfferedBy = null;
-            (0, roomController_1.updateGameState)(room.roomId, room.gameState);
-            // Broadcast to room
-            this.broadcastToRoom(room.roomId, {
-                type: "game_over",
-                winner: "draw",
-            });
-            // Send updated game state
-            this.broadcastGameState(room);
+        const roomId = room.roomId;
+        if (!roomId)
+            return;
+        if (!room)
+            return;
+        const player = room.players.find((p) => p.id === playerId);
+        if (!player)
+            return;
+        // Verify there's an active draw offer and it wasn't made by this player
+        if (!room.gameState.drawOfferedBy ||
+            room.gameState.drawOfferedBy === player.color) {
+            return;
         }
-        catch (error) {
-            console.error("Error accepting draw:", error);
-            this.sendError(ws, "Failed to accept draw");
-        }
+        // End the game in a draw
+        room.gameState = {
+            ...room.gameState,
+            isGameOver: true,
+            winner: "draw",
+            drawOfferedBy: null,
+        };
+        // Broadcast the game over message
+        this.broadcastToRoom(roomId, {
+            type: "game_over",
+            winner: "draw",
+        });
+        // Broadcast the final game state
+        this.broadcastToRoom(roomId, {
+            type: "game_state",
+            gameState: room.gameState,
+        });
     }
     declineDraw(ws) {
         const playerId = ws.playerId;
+        const room = (0, roomController_1.getRoomByPlayerId)(playerId);
+        if (!room) {
+            this.sendError(ws, "Room not found");
+            return;
+        }
+        const roomId = room.roomId;
+        if (!roomId)
+            return;
+        const player = room.players.find((p) => p.id === playerId);
+        if (!player)
+            return;
+        // Remove the draw offer
+        room.gameState = {
+            ...room.gameState,
+            drawOfferedBy: null,
+        };
+        // Broadcast the decline
+        this.broadcastToRoom(roomId, {
+            type: "draw_declined",
+            player: player.color,
+        });
+    }
+    handleDisconnect(ws) {
+        const playerId = ws.playerId;
         if (!playerId) {
-            this.sendError(ws, "Player not found");
             return;
         }
         try {
             const room = (0, roomController_1.getRoomByPlayerId)(playerId);
             if (!room) {
-                this.sendError(ws, "Room not found");
                 return;
             }
-            const player = room.players.find(p => p.id === playerId);
+            const player = room.players.find((p) => p.id === playerId);
             if (!player) {
-                this.sendError(ws, "Player not found in room");
                 return;
             }
-            // Verify there's an active draw offer
-            if (!room.gameState.drawOfferedBy) {
-                this.sendError(ws, "No active draw offer to decline");
-                return;
+            // If game is active, notify the other player
+            if (room.status === "active") {
+                this.broadcastToRoom(room.roomId, {
+                    type: "player_disconnected",
+                    player: player.color,
+                    name: player.name,
+                });
+                // Set game as finished, with other player as winner
+                const otherPlayer = room.players.find((p) => p.id !== playerId);
+                if (otherPlayer) {
+                    room.gameState.isGameOver = true;
+                    room.gameState.winner = otherPlayer.color;
+                    this.broadcastToRoom(room.roomId, {
+                        type: "game_over",
+                        winner: otherPlayer.color,
+                        reason: "disconnect",
+                    });
+                }
             }
-            console.log(`[SERVER] Player ${player.name || player.id} (${player.color}) declined the draw`);
-            // Clear draw offer
-            room.gameState.drawOfferedBy = null;
-            (0, roomController_1.updateGameState)(room.roomId, room.gameState);
-            // Broadcast to room
-            this.broadcastToRoom(room.roomId, {
-                type: "draw_declined",
-                player: player.color,
-            });
+            // Remove player from room
+            (0, roomController_1.removePlayerFromRoom)(playerId);
         }
         catch (error) {
-            console.error("Error declining draw:", error);
-            this.sendError(ws, "Failed to decline draw");
+            console.error("Error handling disconnect:", error);
         }
     }
-}
-try {
-    const room = (0, roomController_1.getRoomByPlayerId)(playerId);
-    if (!room) {
-        return;
-    }
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) {
-        return;
-    }
-    // If game is active, notify the other player
-    if (room.status === "active") {
-        this.broadcastToRoom(room.roomId, {
-            type: "player_disconnected",
-            player: player.color,
-            name: player.name,
-        });
-        // Set game as finished, with other player as winner
-        const otherPlayer = room.players.find((p) => p.id !== playerId);
-        if (otherPlayer) {
-            room.gameState.isGameOver = true;
-            room.gameState.winner = otherPlayer.color;
-            this.broadcastToRoom(room.roomId, {
-                type: "game_over",
-                winner: otherPlayer.color,
-                reason: "disconnect",
-            });
+    sendMessage(ws, message) {
+        if (ws.readyState === ws_1.WebSocket.OPEN) {
+            try {
+                console.log(`Sending message: ${JSON.stringify(message)}`);
+                ws.send(JSON.stringify(message));
+            }
+            catch (error) {
+                console.error(`Error sending message: ${error}`);
+            }
+        }
+        else {
+            console.warn(`Cannot send message, socket is not open (readyState=${ws.readyState}): ${JSON.stringify(message)}`);
         }
     }
-    // Remove player from room
-    (0, roomController_1.removePlayerFromRoom)(playerId);
-}
-catch (error) {
-    console.error("Error handling disconnect:", error);
-}
-sendMessage(ws, ws_1.WebSocket, message, any);
-{
-    if (ws.readyState === ws_1.WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
+    sendError(ws, message) {
+        this.sendMessage(ws, { type: "error", message });
     }
-}
-sendError(ws, ws_1.WebSocket, message, string);
-{
-    this.sendMessage(ws, { type: "error", message });
-}
-broadcastToRoom(roomId, string, message, any);
-{
-    const room = (0, roomController_1.getRoom)(roomId);
-    if (!room) {
-        return;
-    }
-    for (const player of room.players) {
-        // Find the socket for this player
-        const clients = Array.from(this.wss.clients);
-        const socket = clients.find((client) => client.playerId === player.id);
-        if (socket && socket.readyState === ws_1.WebSocket.OPEN) {
-            socket.send(JSON.stringify(message));
+    broadcastToRoom(roomId, message) {
+        const room = (0, roomController_1.getRoom)(roomId);
+        if (!room) {
+            return;
+        }
+        for (const player of room.players) {
+            // Find the socket for this player
+            const clients = Array.from(this.wss.clients);
+            const socket = clients.find((client) => client.playerId === player.id);
+            if (socket && socket.readyState === ws_1.WebSocket.OPEN) {
+                socket.send(JSON.stringify(message));
+            }
         }
     }
 }

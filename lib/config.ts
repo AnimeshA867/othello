@@ -12,7 +12,7 @@ export const config = {
     // For production (Render)
     production: {
       protocol: "wss",
-      host: process.env.NEXT_PUBLIC_WS_HOST || "othello-86eg.onrender.com",
+      host: process.env.NEXT_PUBLIC_WS_HOST || "othello-bk1t.onrender.com",
       port: null, // Usually not needed with wss as it uses standard HTTPS port
     },
   },

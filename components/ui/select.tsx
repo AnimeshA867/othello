@@ -4,6 +4,14 @@ import * as React from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface SelectChildProps {
+  isOpen?: boolean;
+  setIsOpen?: (open: boolean) => void;
+  selectedValue?: string;
+  onSelect?: (value: string) => void;
+  disabled?: boolean;
+}
+
 const Select = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & {
@@ -31,13 +39,16 @@ const Select = React.forwardRef<
     <div ref={ref} className={cn("relative", className)} {...props}>
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child, {
-            isOpen,
-            setIsOpen,
-            selectedValue,
-            onSelect: handleSelect,
-            disabled,
-          } as any);
+          return React.cloneElement(
+            child as React.ReactElement<SelectChildProps>,
+            {
+              isOpen,
+              setIsOpen,
+              selectedValue,
+              onSelect: handleSelect,
+              disabled,
+            }
+          );
         }
         return child;
       })}

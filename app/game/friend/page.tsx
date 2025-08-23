@@ -8,7 +8,6 @@ import {
   Copy,
   Share,
   Loader2,
-  Info,
   X,
   Link as LinkIcon,
 } from "lucide-react";

@@ -1,8 +1,5 @@
 "use client";
 
-import { useRef, Suspense } from "react";
-import { Canvas } from "@react-three/fiber";
-import * as THREE from "three";
 import { type Player } from "@/lib/othello-game";
 
 interface OthelloPiece3DProps {
@@ -37,7 +34,6 @@ export function OthelloPiece2D({
   color,
   isFlipping = false,
   flipDirection,
-  size = 60,
   className = "",
 }: OthelloPiece3DProps) {
   const animationClass = isFlipping

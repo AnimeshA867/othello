@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 // Dynamically import 3D component to avoid SSR issues
 const OthelloPiece3D = dynamic(
   () =>
-    import("./othello-piece-3d.tsx").then((mod) => ({
+    import("./othello-piece-3d").then((mod) => ({
       default: mod.OthelloPiece3D,
     })),
   {
@@ -25,7 +25,6 @@ function OthelloPiece2D({
   color,
   isFlipping = false,
   flipDirection,
-  size = 60,
   className = "",
 }: {
   color: Player;
@@ -180,6 +179,7 @@ export function OthelloBoard({
                   : "bg-emerald-700 hover:bg-emerald-600",
                 // Highlight valid moves
                 isValidMove(rowIndex, colIndex) &&
+                  !isAiThinking &&
                   "ring-3 ring-yellow-400 shadow-lg shadow-yellow-400/30",
                 // Highlight last move
                 isLastMove(rowIndex, colIndex) &&
@@ -211,7 +211,7 @@ export function OthelloBoard({
                 )}
 
               {/* Valid move indicator */}
-              {isValidMove(rowIndex, colIndex) && (
+              {isValidMove(rowIndex, colIndex) && !isAiThinking && (
                 <motion.div
                   className="absolute inset-0 flex items-center justify-center"
                   initial={{ opacity: 0, scale: 0 }}

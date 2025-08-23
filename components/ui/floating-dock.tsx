@@ -7,12 +7,11 @@ import { cn } from "@/lib/utils";
 interface FloatingDockProps {
   children: React.ReactNode;
   className?: string;
-  mobileClassName?: string;
   direction?: "top" | "middle" | "bottom";
 }
 
 export const FloatingDock = React.forwardRef<HTMLDivElement, FloatingDockProps>(
-  ({ children, className, mobileClassName, direction = "middle" }, ref) => {
+  ({ children, className, direction = "middle" }, ref) => {
     return (
       <div
         ref={ref}
