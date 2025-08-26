@@ -178,7 +178,7 @@ export default function HowToPlayPage() {
                 <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg">
                   <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-black flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-sm md:text-base">
+                    <p className="font-medium text-sm text-gray-500 md:text-base">
                       Black goes first
                     </p>
                     <p className="text-xs md:text-sm text-gray-600">
@@ -189,7 +189,7 @@ export default function HowToPlayPage() {
                 <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-gray-50 rounded-lg">
                   <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-white border-2 border-gray-300 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-sm md:text-base">
+                    <p className="font-medium text-sm md:text-base text-gray-500">
                       White goes second
                     </p>
                     <p className="text-xs md:text-sm text-gray-600">
@@ -198,7 +198,7 @@ export default function HowToPlayPage() {
                   </div>
                 </div>
                 <div className="p-3 md:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-xs md:text-sm">
+                  <p className="text-xs md:text-sm text-black">
                     <strong>Important:</strong> If you cannot make a valid move,
                     your turn is skipped. If neither player can move, the game
                     ends.
