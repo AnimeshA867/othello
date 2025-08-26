@@ -86,7 +86,7 @@ export default function FriendGamePage() {
     } else {
       setShowDrawOfferDialog(false);
     }
-  }, [gameState.drawOfferedBy, websocketState.playerRole, toast]);
+  }, [gameState.drawOfferedBy, websocketState.playerRole]);
 
   // Show rematch offer dialog when a rematch is offered
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function FriendGamePage() {
     } else {
       setShowRematchOfferDialog(false);
     }
-  }, [gameState.rematchOfferedBy, websocketState.playerRole, toast]);
+  }, [gameState.rematchOfferedBy, websocketState.playerRole]);
 
   // Handle room creation
   const handleCreateRoom = () => {
@@ -287,6 +287,7 @@ export default function FriendGamePage() {
                         size="sm"
                         onClick={handleOfferRematch}
                         className="text-gray-300 hover:text-white"
+                        title="Offer Rematch"
                       >
                         <RotateCcw className="w-4 h-4" />
                       </Button>

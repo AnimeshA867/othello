@@ -306,6 +306,7 @@ export default function RankedGamePage() {
                         variant="outline"
                         size="sm"
                         onClick={handleOfferRematch}
+                        title="Offer Rematch"
                       >
                         <RotateCcw className="w-4 h-4" />
                       </Button>
