@@ -41,6 +41,9 @@ export default function RankedGamePage() {
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
   } = useUnifiedMultiplayerGame();
 
   const name = getNameIfAny();
@@ -58,6 +61,7 @@ export default function RankedGamePage() {
   const [showGameOverDialog, setShowGameOverDialog] = useState(false);
   const [showDrawOfferDialog, setShowDrawOfferDialog] = useState(false);
   const [showResignDialog, setShowResignDialog] = useState(false);
+  const [showRematchOfferDialog, setShowRematchOfferDialog] = useState(false);
 
   // Show game over dialog when game ends
   useEffect(() => {
@@ -91,7 +95,34 @@ export default function RankedGamePage() {
     } else {
       setShowDrawOfferDialog(false);
     }
-  }, [gameState.drawOfferedBy, websocketState.playerRole, toast]);
+  }, [gameState.drawOfferedBy, websocketState.playerRole]);
+
+  // Show rematch offer dialog when a rematch is offered
+  useEffect(() => {
+    if (
+      gameState.rematchOfferedBy &&
+      gameState.rematchOfferedBy !== websocketState.playerRole
+    ) {
+      setShowRematchOfferDialog(true);
+      // Play a notification sound
+      try {
+        const audio = new Audio("/sounds/notification.mp3");
+        audio.volume = 0.5;
+        audio.play().catch((e) => console.log("Audio play failed:", e));
+      } catch (error) {
+        console.log("Audio failed:", error);
+      }
+
+      // Show toast notification
+      toast({
+        title: "Rematch Offer",
+        description: "Your opponent has offered a rematch. Accept or decline?",
+        variant: "default",
+      });
+    } else {
+      setShowRematchOfferDialog(false);
+    }
+  }, [gameState.rematchOfferedBy, websocketState.playerRole]);
 
   // Handle joining a random game
   const handleJoinRandomGame = () => {
@@ -176,6 +207,33 @@ export default function RankedGamePage() {
     });
   };
 
+  // Handle rematch offers
+  const handleOfferRematch = () => {
+    offerRematch();
+    toast({
+      title: "Rematch Offered",
+      description: "Waiting for opponent's response",
+    });
+  };
+
+  const handleAcceptRematch = () => {
+    acceptRematch();
+    setShowRematchOfferDialog(false);
+    toast({
+      title: "Rematch Accepted",
+      description: "Starting a new game",
+    });
+  };
+
+  const handleDeclineRematch = () => {
+    declineRematch();
+    setShowRematchOfferDialog(false);
+    toast({
+      title: "Rematch Declined",
+      description: "You declined the rematch offer",
+    });
+  };
+
   // Get opponent name based on player role
   const getOpponentName = () => {
     return gameState.opponentName || "Opponent";
@@ -247,7 +305,7 @@ export default function RankedGamePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleRestart}
+                        onClick={handleOfferRematch}
                       >
                         <RotateCcw className="w-4 h-4" />
                       </Button>
@@ -334,6 +392,7 @@ export default function RankedGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-white/10 bg-white/5 backdrop-blur-sm">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
+            playerColor={websocketState.playerRole as "black" | "white"}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
             opponentName={getOpponentName()}
@@ -434,10 +493,10 @@ export default function RankedGamePage() {
               Close
             </Button>
             <Button
-              onClick={handleRestart}
+              onClick={handleOfferRematch}
               className="bg-white text-black hover:bg-white/90"
             >
-              Play Again
+              Offer Rematch
             </Button>
           </div>
         </DialogContent>
@@ -496,6 +555,36 @@ export default function RankedGamePage() {
               Resign
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rematch Offer Dialog */}
+      <Dialog
+        open={showRematchOfferDialog}
+        onOpenChange={setShowRematchOfferDialog}
+      >
+        <DialogContent className="bg-black border border-white/20 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Rematch Offered</DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Your opponent has offered a rematch. Do you accept?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-between mt-4">
+            <Button
+              variant="outline"
+              onClick={handleDeclineRematch}
+              className="text-white border-white/20 hover:bg-white/10"
+            >
+              Decline
+            </Button>
+            <Button
+              onClick={handleAcceptRematch}
+              className="bg-white text-black hover:bg-white/90"
+            >
+              Accept Rematch
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

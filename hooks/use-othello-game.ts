@@ -40,6 +40,13 @@ export function useOthelloGame(
             // Make AI move after exactly 1 second for smooth experience
             setTimeout(() => {
               const aiMove = game.getBestMove();
+              if (!aiMove) {
+                // Handle case where AI has no valid moves
+                gameState.currentPlayer = "black"; // Pass turn back to player
+                setIsAiThinking(false);
+
+                return;
+              }
               if (aiMove) {
                 const aiSuccess = game.makeMove(aiMove.row, aiMove.col);
                 if (aiSuccess) {
@@ -72,8 +79,11 @@ export function useOthelloGame(
   const resignGame = useCallback(() => {
     // Implementation for resignation
     // For now, just restart the game
-    restartGame();
-  }, [restartGame]);
+    gameState.winner = "white";
+    gameState.isGameOver = true;
+    gameState.validMoves = [];
+    // restartGame();
+  }, [gameState]);
 
   const changeDifficulty = useCallback(
     (newDifficulty: Difficulty) => {

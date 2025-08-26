@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface GameSidebarProps {
   currentPlayer: "black" | "white";
+  playerColor?: "black" | "white";
   blackScore: number;
   whiteScore: number;
   opponentName: string;
@@ -17,10 +18,12 @@ interface GameSidebarProps {
   canUndo?: boolean;
   isAiThinking?: boolean;
   onDraw?: () => void;
+  onRestart?: () => void;
 }
 
 export function GameSidebar({
   currentPlayer,
+  playerColor,
   blackScore,
   whiteScore,
   opponentName,
@@ -28,6 +31,7 @@ export function GameSidebar({
   gameMode,
   onResign,
   onUndo,
+  onRestart,
   canUndo = false,
   isAiThinking = false,
   onDraw,
@@ -60,15 +64,23 @@ export function GameSidebar({
                 }}
               />
               <span className="text-white font-medium text-sm lg:text-base">
-                You
+                {playerColor === "black" ? "You" : opponentName}
               </span>
             </div>
-            {currentPlayer === "black" && (
+            {currentPlayer === playerColor && playerColor === "black" && (
               <Badge
                 variant="secondary"
                 className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
               >
                 Your Turn
+              </Badge>
+            )}
+            {currentPlayer === "black" && playerColor === "white" && (
+              <Badge
+                variant="secondary"
+                className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
+              >
+                Their Turn
               </Badge>
             )}
           </div>
@@ -83,10 +95,18 @@ export function GameSidebar({
                 }}
               />
               <span className="text-white font-medium text-sm lg:text-base">
-                {opponentName}
+                {playerColor === "white" ? "You" : opponentName}
               </span>
             </div>
-            {currentPlayer === "white" && (
+            {currentPlayer === playerColor && playerColor === "white" && (
+              <Badge
+                variant="secondary"
+                className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
+              >
+                Your Turn
+              </Badge>
+            )}
+            {currentPlayer === "white" && playerColor === "black" && (
               <Badge
                 variant="secondary"
                 className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
@@ -150,7 +170,7 @@ export function GameSidebar({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 lg:space-y-3">
-          {onUndo && (
+          {onUndo && gameStatus === "playing" && (
             <Button
               variant="outline"
               className="w-full bg-transparent border-white/30 text-white hover:bg-white hover:text-black transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
@@ -161,14 +181,25 @@ export function GameSidebar({
             </Button>
           )}
 
-          <Button
-            variant="destructive"
-            className="w-full transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
-            onClick={handleResign}
-            disabled={isAiThinking}
-          >
-            Resign
-          </Button>
+          {gameStatus !== "finished" && (
+            <Button
+              variant="destructive"
+              className="w-full transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
+              onClick={handleResign}
+              disabled={isAiThinking}
+            >
+              Resign
+            </Button>
+          )}
+          {gameStatus == "finished" && (
+            <Button
+              onClick={onRestart}
+              variant="outline"
+              className="w-full bg-transparent border-white/30 text-white hover:bg-white hover:text-black transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
+            >
+              Play Again
+            </Button>
+          )}
           {onDraw && (
             <Button
               variant="outline"

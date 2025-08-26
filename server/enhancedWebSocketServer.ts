@@ -15,10 +15,12 @@ import {
 import {
   makeMove,
   isValidMove,
+  Player,
   RankSetType,
   isValidRankSetType,
 } from "../shared/gameLogic";
 import http from "http";
+import { createInitialGameState } from "../shared/gameLogic";
 
 interface WebSocketMessage {
   type: string;
@@ -111,6 +113,17 @@ class EnhancedOthelloWebSocketServer {
         break;
       case "decline_draw":
         this.declineDraw(ws);
+        break;
+      case "offer_rematch":
+        console.log("This is working.");
+
+        this.offerRematch(ws);
+        break;
+      case "accept_rematch":
+        this.acceptRematch(ws);
+        break;
+      case "decline_rematch":
+        this.declineRematch(ws);
         break;
 
       // New handlers for ranked matchmaking
@@ -519,6 +532,129 @@ class EnhancedOthelloWebSocketServer {
     // Broadcast the decline
     this.broadcastToRoom(roomId, {
       type: "draw_declined",
+      player: player.color,
+    });
+  }
+
+  private offerRematch(ws: WebSocket) {
+    const playerId = (ws as any).playerId;
+    const room = getRoomByPlayerId(playerId);
+
+    if (!room) {
+      this.sendError(ws, "Room not found");
+      return;
+    }
+
+    const roomId = room.roomId;
+    console.log(
+      `[SERVER] Rematch offer from player ${playerId} in room ${roomId}`
+    );
+
+    if (!roomId) {
+      console.log("[SERVER] No room ID found for player offering rematch");
+      return;
+    }
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) {
+      console.log("[SERVER] Player not found in room for rematch offer");
+      return;
+    }
+
+    console.log(`[SERVER] Setting rematchOfferedBy to ${player.color}`);
+
+    // Set a flag in the game state
+    room.gameState = {
+      ...room.gameState,
+      rematchOfferedBy: player.color,
+    };
+
+    // Broadcast the rematch offer to all players
+    this.broadcastToRoom(roomId, {
+      type: "rematch_offered",
+      player: player.color,
+    });
+
+    console.log(`[SERVER] Rematch offer broadcast to room ${roomId}`);
+  }
+
+  private acceptRematch(ws: WebSocket) {
+    const playerId = (ws as any).playerId;
+
+    const room = getRoomByPlayerId(playerId);
+    if (!room) {
+      this.sendError(ws, "Room not found");
+      return;
+    }
+    const roomId = room.roomId;
+
+    if (!roomId) return;
+
+    if (!room) return;
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return;
+
+    // Verify there's an active rematch offer and it wasn't made by this player
+    if (
+      !room.gameState.rematchOfferedBy ||
+      room.gameState.rematchOfferedBy === player.color
+    ) {
+      return;
+    }
+
+    // Reset the game state
+    room.gameState = createInitialGameState();
+    room.status = "active";
+
+    // Broadcast the game restart
+    this.broadcastToRoom(roomId, {
+      type: "game_restarted",
+    });
+
+    // Find the other player
+    const blackPlayer = room.players.find((p) => p.color === "black");
+
+    // Notify both players that the game is ready
+    this.broadcastToRoom(room.roomId, {
+      type: "game_ready",
+      roomId: room.roomId,
+      players: {
+        black: blackPlayer?.name || "Player 1",
+        white: player.name || "Player 2",
+      },
+    });
+
+    // Broadcast the new game state
+    this.broadcastToRoom(roomId, {
+      type: "game_state",
+      gameState: room.gameState,
+    });
+  }
+
+  private declineRematch(ws: WebSocket) {
+    const playerId = (ws as any).playerId;
+    const room = getRoomByPlayerId(playerId);
+    if (!room) {
+      this.sendError(ws, "Room not found");
+      return;
+    }
+
+    const roomId = room.roomId;
+    if (!roomId) return;
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return;
+
+    // Remove the rematch offer
+    room.gameState = {
+      ...room.gameState,
+      rematchOfferedBy: null,
+    };
+
+    // Broadcast the decline
+    this.broadcastToRoom(roomId, {
+      type: "rematch_declined",
       player: player.color,
     });
   }

@@ -22,6 +22,7 @@ export interface GameState {
   isGameOver: boolean;
   winner: "black" | "white" | "draw" | null;
   drawOfferedBy?: "black" | "white" | null;
+  rematchOfferedBy?: "black" | "white" | null;
   moveHistory: Position[];
 }
 
@@ -80,6 +81,8 @@ export function createInitialGameState(): GameState {
     lastMove: null,
     isGameOver: false,
     winner: null,
+    drawOfferedBy: null,
+    rematchOfferedBy: null,
     moveHistory: [],
   };
 }

@@ -33,6 +33,9 @@ export default function FriendGamePage() {
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
   } = useUnifiedMultiplayerGame();
 
   const name = getNameIfAny();
@@ -49,6 +52,7 @@ export default function FriendGamePage() {
   const [showGameOverDialog, setShowGameOverDialog] = useState(false);
   const [showDrawOfferDialog, setShowDrawOfferDialog] = useState(false);
   const [showResignDialog, setShowResignDialog] = useState(false);
+  const [showRematchOfferDialog, setShowRematchOfferDialog] = useState(false);
 
   // Show game over dialog when game ends
   useEffect(() => {
@@ -83,6 +87,33 @@ export default function FriendGamePage() {
       setShowDrawOfferDialog(false);
     }
   }, [gameState.drawOfferedBy, websocketState.playerRole, toast]);
+
+  // Show rematch offer dialog when a rematch is offered
+  useEffect(() => {
+    if (
+      gameState.rematchOfferedBy &&
+      gameState.rematchOfferedBy !== websocketState.playerRole
+    ) {
+      setShowRematchOfferDialog(true);
+      // Play a notification sound
+      try {
+        const audio = new Audio("/sounds/notification.mp3");
+        audio.volume = 0.5;
+        audio.play().catch((e) => console.log("Audio play failed:", e));
+      } catch (error) {
+        console.log("Audio failed:", error);
+      }
+
+      // Show toast notification
+      toast({
+        title: "Rematch Offer",
+        description: "Your opponent has offered a rematch. Accept or decline?",
+        variant: "default",
+      });
+    } else {
+      setShowRematchOfferDialog(false);
+    }
+  }, [gameState.rematchOfferedBy, websocketState.playerRole, toast]);
 
   // Handle room creation
   const handleCreateRoom = () => {
@@ -168,6 +199,33 @@ export default function FriendGamePage() {
     });
   };
 
+  // Handle rematch offers
+  const handleOfferRematch = () => {
+    offerRematch();
+    toast({
+      title: "Rematch Offered",
+      description: "Waiting for opponent's response",
+    });
+  };
+
+  const handleAcceptRematch = () => {
+    acceptRematch();
+    setShowRematchOfferDialog(false);
+    toast({
+      title: "Rematch Accepted",
+      description: "Starting a new game",
+    });
+  };
+
+  const handleDeclineRematch = () => {
+    declineRematch();
+    setShowRematchOfferDialog(false);
+    toast({
+      title: "Rematch Declined",
+      description: "You declined the rematch offer",
+    });
+  };
+
   // Get opponent name based on player role
   const getOpponentName = () => {
     return gameState.opponentName || "Opponent";
@@ -215,15 +273,11 @@ export default function FriendGamePage() {
                       className="text-white"
                       disabled={!gameState.roomId}
                     >
-                      {copiedMessage ? (
-                        "Copied!"
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 mr-2" />
-                          <span className="hidden sm:inline">Copy Room ID</span>
-                          <span className="sm:hidden">Copy ID</span>
-                        </>
-                      )}
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        <span className="hidden sm:inline">Copy Room ID</span>
+                        <span className="sm:hidden">Copy ID</span>
+                      </>
                     </Button>
                   )}
                   {websocketState.isConnected &&
@@ -231,7 +285,7 @@ export default function FriendGamePage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={handleRestart}
+                        onClick={handleOfferRematch}
                         className="text-gray-300 hover:text-white"
                       >
                         <RotateCcw className="w-4 h-4" />
@@ -301,6 +355,7 @@ export default function FriendGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
+            playerColor={websocketState.playerRole as "black" | "white"}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
             opponentName={getOpponentName()}
@@ -416,7 +471,7 @@ export default function FriendGamePage() {
             >
               Close
             </Button>
-            <Button onClick={handleRestart}>Play Again</Button>
+            <Button onClick={handleOfferRematch}>Offer Rematch</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -460,6 +515,27 @@ export default function FriendGamePage() {
               Resign
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rematch Offer Dialog */}
+      <Dialog
+        open={showRematchOfferDialog}
+        onOpenChange={setShowRematchOfferDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rematch Offered</DialogTitle>
+            <DialogDescription>
+              Your opponent has offered a rematch. Do you accept?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-between mt-4">
+            <Button variant="outline" onClick={handleDeclineRematch}>
+              Decline
+            </Button>
+            <Button onClick={handleAcceptRematch}>Accept Rematch</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

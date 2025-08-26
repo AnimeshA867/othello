@@ -13,6 +13,9 @@ export type WebSocketMessage =
   | { type: "offer_draw" }
   | { type: "accept_draw" }
   | { type: "decline_draw" }
+  | { type: "offer_rematch" }
+  | { type: "accept_rematch" }
+  | { type: "decline_rematch" }
   | {
       type: "player_joined";
       player: Player;
@@ -26,6 +29,9 @@ export type WebSocketMessage =
   | { type: "player_resigned"; player: Player }
   | { type: "draw_offered"; player: Player }
   | { type: "draw_declined"; player: Player }
+  | { type: "rematch_offered"; player: Player }
+  | { type: "rematch_accepted"; player: Player }
+  | { type: "rematch_declined"; player: Player }
   | { type: "game_over"; winner: "black" | "white" | "draw" }
   | { type: "player_disconnected" }
   | {
@@ -64,6 +70,9 @@ interface UseWebSocketGameReturn {
   offerDraw: () => void;
   acceptDraw: () => void;
   declineDraw: () => void;
+  offerRematch: () => void;
+  acceptRematch: () => void;
+  declineRematch: () => void;
   disconnect: () => void;
   onMessage: (callback: (message: WebSocketMessage) => void) => () => void;
 }
@@ -384,6 +393,21 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     sendMessage({ type: "decline_draw" });
   }, [sendMessage]);
 
+  const offerRematch = useCallback(() => {
+    console.log("Sending offer_rematch message");
+    sendMessage({ type: "offer_rematch" });
+  }, [sendMessage]);
+
+  const acceptRematch = useCallback(() => {
+    console.log("Sending accept_rematch message");
+    sendMessage({ type: "accept_rematch" });
+  }, [sendMessage]);
+
+  const declineRematch = useCallback(() => {
+    console.log("Sending decline_rematch message");
+    sendMessage({ type: "decline_rematch" });
+  }, [sendMessage]);
+
   const disconnect = useCallback(() => {
     if (ws.current) {
       ws.current.close(1000, "User disconnected");
@@ -428,6 +452,9 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
     disconnect,
     onMessage,
   };

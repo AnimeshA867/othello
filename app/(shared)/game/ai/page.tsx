@@ -23,6 +23,8 @@ export default function AIGamePage() {
     useState<Difficulty>("medium");
   const [showResignDialog, setShowResignDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showGameOverStatusDialog, setShowGameOverStatusDialog] =
+    useState(false);
   const { toast } = useToast();
 
   const {
@@ -38,6 +40,8 @@ export default function AIGamePage() {
   // Show toast when game is over
   useEffect(() => {
     if (gameState.isGameOver) {
+      setShowGameOverStatusDialog(true);
+
       const winner = gameState.winner;
       if (winner === "draw") {
         toast({
@@ -56,7 +60,7 @@ export default function AIGamePage() {
         });
       }
     }
-  }, [gameState.isGameOver, gameState.winner, toast]);
+  }, [gameState.isGameOver, gameState.winner]);
 
   const handleMove = async (row: number, col: number) => {
     return await makeMove(row, col);
@@ -76,6 +80,7 @@ export default function AIGamePage() {
 
   const confirmResign = () => {
     resignGame();
+
     setShowResignDialog(false);
     toast({
       title: "Game Resigned",
@@ -196,18 +201,52 @@ export default function AIGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
+            playerColor="black"
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
             opponentName="AI"
             gameMode="ai"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
+            onRestart={handleRestart}
             onUndo={handleUndo}
             canUndo={gameState.moveHistory.length > 0 && !isAiThinking}
             isAiThinking={isAiThinking}
           />
         </div>
       </div>
+
+      {/* Win Status */}
+      <Dialog
+        open={showGameOverStatusDialog}
+        onOpenChange={setShowGameOverStatusDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Game Over</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            {gameState.winner !== "draw"
+              ? gameState.winner == "black"
+                ? `Congratulations! You win!`
+                : `Better luck next time!`
+              : "It's a draw!"}
+          </DialogDescription>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowGameOverStatusDialog(false);
+                handleRestart();
+              }}
+            >
+              Play Again
+            </Button>
+            <Button onClick={() => setShowGameOverStatusDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Resign Confirmation Dialog */}
       <Dialog open={showResignDialog} onOpenChange={setShowResignDialog}>

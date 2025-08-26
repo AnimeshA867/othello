@@ -33,6 +33,7 @@ interface UnifiedMultiplayerGameState extends GameState {
   rankSetType?: RankSetType;
   gameMode: any;
   drawOfferedBy?: "black" | "white" | null;
+  rematchOfferedBy?: "black" | "white" | null;
 }
 
 export function useUnifiedMultiplayerGame() {
@@ -47,6 +48,9 @@ export function useUnifiedMultiplayerGame() {
     offerDraw: sendDrawOffer,
     acceptDraw: sendAcceptDraw,
     declineDraw: sendDeclineDraw,
+    offerRematch: sendRematchOffer,
+    acceptRematch: sendAcceptRematch,
+    declineRematch: sendDeclineRematch,
     disconnect,
     onMessage,
   } = useWebSocketGame();
@@ -70,6 +74,7 @@ export function useUnifiedMultiplayerGame() {
     canUndo: false,
     undosRemaining: 0,
     drawOfferedBy: null,
+    rematchOfferedBy: null,
   });
   // Register message handlers
   useEffect(() => {
@@ -218,6 +223,21 @@ export function useUnifiedMultiplayerGame() {
             isGameOver: true,
             winner: message.winner,
             drawOfferedBy: null,
+            rematchOfferedBy: null,
+          }));
+          break;
+
+        case "rematch_offered":
+          setGameState((prev) => ({
+            ...prev,
+            rematchOfferedBy: message.player,
+          }));
+          break;
+
+        case "rematch_declined":
+          setGameState((prev) => ({
+            ...prev,
+            rematchOfferedBy: null,
           }));
           break;
 
@@ -337,6 +357,18 @@ export function useUnifiedMultiplayerGame() {
     sendDeclineDraw();
   }, [sendDeclineDraw]);
 
+  const offerRematch = useCallback(() => {
+    sendRematchOffer();
+  }, [sendRematchOffer]);
+
+  const acceptRematch = useCallback(() => {
+    sendAcceptRematch();
+  }, [sendAcceptRematch]);
+
+  const declineRematch = useCallback(() => {
+    sendDeclineRematch();
+  }, [sendDeclineRematch]);
+
   const leaveRoom = useCallback(() => {
     disconnect();
     setGameState({
@@ -357,6 +389,8 @@ export function useUnifiedMultiplayerGame() {
       moveHistory: [],
       canUndo: false,
       undosRemaining: 0,
+      drawOfferedBy: null,
+      rematchOfferedBy: null,
     });
   }, [disconnect]);
 
@@ -389,6 +423,9 @@ export function useUnifiedMultiplayerGame() {
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
     leaveRoom,
     joinRandomGame,
     isConnected: websocketState.isConnected,
