@@ -23,6 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html>
+      <meta name="google-site-verification" content="754cc-dXD2Q8DDrRn9ZizW5T0YL-102-491xTw8X6Mw" />
       <body className={`font-sans antialiased ${inter.className}`}>
         <ThemeProvider
           attribute="class"
