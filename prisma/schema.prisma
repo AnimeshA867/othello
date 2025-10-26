@@ -1,0 +1,192 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - stores core user data
+model User {
+  id            String   @id @default(cuid())
+  stackId       String   @unique // Stack Auth user ID
+  email         String   @unique
+  username      String   @unique
+  displayName   String?
+  avatarUrl     String?
+  bio           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  profile          UserProfile?
+  gameStats        GameStats?
+  blackMatches     RankedMatch[] @relation("BlackPlayer")
+  whiteMatches     RankedMatch[] @relation("WhitePlayer")
+  achievements     UserAchievement[]
+  friends          Friendship[] @relation("UserFriends")
+  friendOf         Friendship[] @relation("FriendOfUser")
+  
+  @@index([stackId])
+  @@index([email])
+  @@index([username])
+}
+
+// User Profile - extended profile information
+model UserProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  country         String?
+  timezone        String?
+  preferredColor  String   @default("black") // "black" or "white"
+  isPublic        Boolean  @default(true)
+  allowChallenges Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+// Game Statistics - tracks player performance
+model GameStats {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Overall stats
+  totalGames        Int      @default(0)
+  wins              Int      @default(0)
+  losses            Int      @default(0)
+  draws             Int      @default(0)
+  
+  // Mode-specific stats
+  aiGames           Int      @default(0)
+  aiWins            Int      @default(0)
+  multiplayerGames  Int      @default(0)
+  multiplayerWins   Int      @default(0)
+  rankedGames       Int      @default(0)
+  rankedWins        Int      @default(0)
+  
+  // Ranking stats
+  eloRating         Int      @default(1200)
+  peakEloRating     Int      @default(1200)
+  rank              String   @default("Beginner")
+  
+  // Streaks
+  currentWinStreak  Int      @default(0)
+  longestWinStreak  Int      @default(0)
+  
+  // Additional metrics
+  averageGameTime   Int      @default(0) // in seconds
+  totalPiecesFlipped Int     @default(0)
+  perfectGames      Int      @default(0) // games won with 64-0
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([eloRating])
+  @@index([rank])
+}
+
+// Ranked Match History
+model RankedMatch {
+  id              String   @id @default(cuid())
+  
+  // Players
+  blackPlayerId   String
+  whitePlayerId   String
+  blackPlayer     User     @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+  whitePlayer     User     @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
+  
+  // Game details
+  winnerId        String?  // null for draw
+  gameData        String   @db.Text // JSON string of game moves and board state
+  duration        Int      // in seconds
+  
+  // ELO changes
+  blackEloChange  Int
+  whiteEloChange  Int
+  blackEloAfter   Int
+  whiteEloAfter   Int
+  
+  // Score
+  blackScore      Int
+  whiteScore      Int
+  
+  playedAt        DateTime @default(now())
+  
+  @@index([blackPlayerId])
+  @@index([whitePlayerId])
+  @@index([winnerId])
+  @@index([playedAt])
+}
+
+// Achievements
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "first_win", "win_streak_5"
+  name        String
+  description String
+  icon        String
+  category    String   // "milestone", "skill", "social", etc.
+  rarity      String   // "common", "rare", "epic", "legendary"
+  points      Int      @default(0)
+  
+  users       UserAchievement[]
+  
+  @@index([category])
+  @@index([rarity])
+}
+
+// User Achievements (junction table)
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now())
+  
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+}
+
+// Friendships
+model Friendship {
+  id          String   @id @default(cuid())
+  userId      String
+  friendId    String
+  user        User     @relation("UserFriends", fields: [userId], references: [id], onDelete: Cascade)
+  friend      User     @relation("FriendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // "pending", "accepted", "blocked"
+  createdAt   DateTime @default(now())
+  
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+  @@index([status])
+}
+
+// Leaderboard cache (for performance)
+model Leaderboard {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  rank      Int
+  eloRating Int
+  wins      Int
+  losses    Int
+  updatedAt DateTime @default(now()) @updatedAt
+  
+  @@index([rank])
+  @@index([eloRating])
+}
+

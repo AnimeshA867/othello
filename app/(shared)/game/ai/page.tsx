@@ -5,7 +5,7 @@ import { GameSidebar } from "@/components/game-sidebar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, RotateCcw, Settings } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,15 +17,38 @@ import {
 import { useOthelloGame } from "@/hooks/use-othello-game";
 import { useToast } from "@/hooks/use-toast";
 import type { Difficulty } from "@/lib/othello-game";
+import { useUser } from "@stackframe/stack";
+import { useAppDispatch, useAppSelector } from "@/lib/redux/hooks";
+import {
+  setShowResignDialog,
+  setShowSettingsDialog,
+} from "@/lib/redux/slices/uiSlice";
+import { setDifficulty, setGameMode } from "@/lib/redux/slices/gameSlice";
+import {
+  incrementGameStats,
+  completeTutorial,
+} from "@/lib/redux/slices/userSlice";
+import { TutorialDialog } from "@/components/tutorial-dialog";
 
 export default function AIGamePage() {
-  const [currentDifficulty, setCurrentDifficulty] =
-    useState<Difficulty>("medium");
-  const [showResignDialog, setShowResignDialog] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [showGameOverStatusDialog, setShowGameOverStatusDialog] =
-    useState(false);
+  const dispatch = useAppDispatch();
+  const currentDifficulty = useAppSelector(
+    (state: any) => state.game.botDifficulty
+  );
+  const showResignDialog = useAppSelector(
+    (state: any) => state.ui.showResignDialog
+  );
+  const showSettingsDialog = useAppSelector(
+    (state: any) => state.ui.showSettingsDialog
+  );
+  const hasCompletedTutorial = useAppSelector(
+    (state: any) => state.user.hasCompletedTutorial
+  );
   const { toast } = useToast();
+  const user = useUser();
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const gameRecordedRef = useRef<boolean>(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const {
     gameState,
@@ -37,12 +60,80 @@ export default function AIGamePage() {
     undoMove,
   } = useOthelloGame("ai", currentDifficulty);
 
-  // Show toast when game is over
+  // Show tutorial for new users
   useEffect(() => {
-    if (gameState.isGameOver) {
-      setShowGameOverStatusDialog(true);
+    if (!hasCompletedTutorial) {
+      // Small delay to let the page render first
+      const timer = setTimeout(() => {
+        setShowTutorial(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasCompletedTutorial]);
 
+  // Set game mode and initialize difficulty on mount
+  useEffect(() => {
+    dispatch(setGameMode("ai"));
+    if (!currentDifficulty) {
+      dispatch(setDifficulty("easy"));
+    }
+  }, [dispatch, currentDifficulty]);
+
+  // Record game result when game is over
+  useEffect(() => {
+    if (gameState.isGameOver && !gameRecordedRef.current && user) {
       const winner = gameState.winner;
+      const duration = Math.floor(
+        (Date.now() - gameStartTimeRef.current) / 1000
+      );
+
+      // Increment game stats in Redux
+      dispatch(
+        incrementGameStats({
+          won: winner === "black",
+          draw: winner === "draw",
+          mode: "ai",
+        })
+      );
+
+      // Record the game result
+      fetch("/api/games/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "ai",
+          won: winner === "black",
+          draw: winner === "draw",
+          score: gameState.blackScore,
+          opponentScore: gameState.whiteScore,
+          duration,
+          difficulty: currentDifficulty,
+        }),
+      })
+        .then(() => {
+          // Check for achievement unlocks
+          return fetch("/api/achievements", {
+            method: "POST",
+          });
+        })
+        .then((res) => res.json())
+        .then((data) => {
+          // Show achievement notifications
+          if (data.newlyUnlocked && data.newlyUnlocked.length > 0) {
+            data.newlyUnlocked.forEach((achievement: any) => {
+              toast({
+                title: "🏆 Achievement Unlocked!",
+                description: `${achievement.achievement.name}: ${achievement.achievement.description}`,
+                duration: 5000,
+              });
+            });
+          }
+        })
+        .catch(console.error);
+
+      gameRecordedRef.current = true;
+
+      // Show toast
       if (winner === "draw") {
         toast({
           title: "Game Over",
@@ -60,7 +151,16 @@ export default function AIGamePage() {
         });
       }
     }
-  }, [gameState.isGameOver, gameState.winner]);
+  }, [
+    gameState.isGameOver,
+    gameState.winner,
+    gameState.blackScore,
+    gameState.whiteScore,
+    toast,
+    user,
+    currentDifficulty,
+    dispatch,
+  ]);
 
   const handleMove = async (row: number, col: number) => {
     return await makeMove(row, col);
@@ -68,6 +168,8 @@ export default function AIGamePage() {
 
   const handleRestart = () => {
     restartGame();
+    gameStartTimeRef.current = Date.now();
+    gameRecordedRef.current = false;
     toast({
       title: "New Game",
       description: "Starting fresh game against AI",
@@ -75,22 +177,41 @@ export default function AIGamePage() {
   };
 
   const handleResign = () => {
-    setShowResignDialog(true);
+    dispatch(setShowResignDialog(true));
   };
 
   const confirmResign = () => {
     resignGame();
-
-    setShowResignDialog(false);
+    dispatch(setShowResignDialog(false));
     toast({
       title: "Game Resigned",
       description: "You can start a new game anytime!",
     });
   };
 
+  const handleTutorialComplete = () => {
+    dispatch(completeTutorial());
+    setShowTutorial(false);
+    toast({
+      title: "Tutorial Complete!",
+      description: "You're ready to play. Good luck!",
+    });
+  };
+
+  const handleTutorialSkip = () => {
+    dispatch(completeTutorial());
+    setShowTutorial(false);
+    toast({
+      title: "Tutorial Skipped",
+      description: "You can review the rules in 'How to Play' anytime",
+    });
+  };
+
   const handleDifficultyChange = (newDifficulty: Difficulty) => {
-    setCurrentDifficulty(newDifficulty);
+    dispatch(setDifficulty(newDifficulty));
     changeDifficulty(newDifficulty);
+    gameStartTimeRef.current = Date.now();
+    gameRecordedRef.current = false;
     toast({
       title: "Difficulty Changed",
       description: `AI difficulty set to ${newDifficulty}`,
@@ -160,7 +281,7 @@ export default function AIGamePage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setShowSettingsDialog(true)}
+                    onClick={() => dispatch(setShowSettingsDialog(true))}
                     className="text-gray-300 hover:text-white"
                   >
                     <Settings className="w-4 h-4" />
@@ -201,14 +322,12 @@ export default function AIGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
-            playerColor="black"
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
             opponentName="AI"
             gameMode="ai"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
-            onRestart={handleRestart}
             onUndo={handleUndo}
             canUndo={gameState.moveHistory.length > 0 && !isAiThinking}
             isAiThinking={isAiThinking}
@@ -216,40 +335,11 @@ export default function AIGamePage() {
         </div>
       </div>
 
-      {/* Win Status */}
-      <Dialog
-        open={showGameOverStatusDialog}
-        onOpenChange={setShowGameOverStatusDialog}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Game Over</DialogTitle>
-          </DialogHeader>
-          <DialogDescription>
-            {gameState.winner !== "draw"
-              ? gameState.winner == "black"
-                ? `Congratulations! You win!`
-                : `Better luck next time!`
-              : "It's a draw!"}
-          </DialogDescription>
-          <DialogFooter>
-            <Button
-              onClick={() => {
-                setShowGameOverStatusDialog(false);
-                handleRestart();
-              }}
-            >
-              Play Again
-            </Button>
-            <Button onClick={() => setShowGameOverStatusDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Resign Confirmation Dialog */}
-      <Dialog open={showResignDialog} onOpenChange={setShowResignDialog}>
+      <Dialog
+        open={showResignDialog}
+        onOpenChange={(open) => dispatch(setShowResignDialog(open))}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Resign Game?</DialogTitle>
@@ -261,7 +351,7 @@ export default function AIGamePage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowResignDialog(false)}
+              onClick={() => dispatch(setShowResignDialog(false))}
             >
               Cancel
             </Button>
@@ -273,7 +363,10 @@ export default function AIGamePage() {
       </Dialog>
 
       {/* Settings Dialog */}
-      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+      <Dialog
+        open={showSettingsDialog}
+        onOpenChange={(open) => dispatch(setShowSettingsDialog(open))}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Settings</DialogTitle>
@@ -309,10 +402,19 @@ export default function AIGamePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowSettingsDialog(false)}>Done</Button>
+            <Button onClick={() => dispatch(setShowSettingsDialog(false))}>
+              Done
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Tutorial Dialog */}
+      <TutorialDialog
+        open={showTutorial}
+        onComplete={handleTutorialComplete}
+        onSkip={handleTutorialSkip}
+      />
     </div>
   );
 }

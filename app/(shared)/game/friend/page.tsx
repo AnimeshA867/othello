@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, RotateCcw, Copy, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { OthelloBoard } from "@/components/othello-board";
 import { GameSidebar } from "@/components/game-sidebar";
 import { useUnifiedMultiplayerGame } from "@/hooks/use-unified-multiplayer-game";
-import { setStorageItem } from "@/lib/storage-helpers";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getNameIfAny } from "@/lib/othello-game";
+import { useUser } from "@stackframe/stack";
+import { useAppSelector, useAppDispatch } from "@/lib/redux/hooks";
+import {
+  setShowGameOverDialog,
+  setShowResignDialog,
+  setShowDrawOfferDialog,
+} from "@/lib/redux/slices/uiSlice";
+import { incrementGameStats } from "@/lib/redux/slices/userSlice";
+import { setGameType } from "@/lib/redux/slices/gameSlice";
 
 export default function FriendGamePage() {
   const {
@@ -33,33 +40,112 @@ export default function FriendGamePage() {
     offerDraw,
     acceptDraw,
     declineDraw,
-    offerRematch,
-    acceptRematch,
-    declineRematch,
   } = useUnifiedMultiplayerGame();
 
-  const name = getNameIfAny();
   const { toast } = useToast();
+  const user = useUser();
+  const dispatch = useAppDispatch();
 
-  // Game setup dialog states
+  // Redux state
+  const showGameOverDialog = useAppSelector(
+    (state: any) => state.ui.showGameOverDialog
+  );
+  const showDrawOfferDialog = useAppSelector(
+    (state: any) => state.ui.showDrawOfferDialog
+  );
+  const showResignDialog = useAppSelector(
+    (state: any) => state.ui.showResignDialog
+  );
+
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const gameRecordedRef = useRef<boolean>(false);
+
+  // Local UI state
   const [dialogOpen, setDialogOpen] = useState(true);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-  const [playerName, setPlayerName] = useState(name);
   const [roomIdToJoin, setRoomIdToJoin] = useState("");
   const [copiedMessage, setCopiedMessage] = useState(false);
+  const [hasCreatedRoom, setHasCreatedRoom] = useState(false);
 
-  // Game control dialog states
-  const [showGameOverDialog, setShowGameOverDialog] = useState(false);
-  const [showDrawOfferDialog, setShowDrawOfferDialog] = useState(false);
-  const [showResignDialog, setShowResignDialog] = useState(false);
-  const [showRematchOfferDialog, setShowRematchOfferDialog] = useState(false);
+  // Set game type on mount
+  useEffect(() => {
+    dispatch(setGameType("friend"));
+  }, [dispatch]);
 
   // Show game over dialog when game ends
   useEffect(() => {
     if (gameState.isGameOver) {
-      setShowGameOverDialog(true);
+      dispatch(setShowGameOverDialog(true));
+
+      // Record game result for authenticated users
+      if (!gameRecordedRef.current && user) {
+        const myRole = websocketState.playerRole;
+        const winner = gameState.winner;
+        const duration = Math.floor(
+          (Date.now() - gameStartTimeRef.current) / 1000
+        );
+
+        let won = false;
+        if (winner === myRole) {
+          won = true;
+        }
+
+        dispatch(
+          incrementGameStats({
+            won,
+            draw: winner === "draw",
+            mode: "friend",
+          })
+        );
+
+        fetch("/api/games/record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "friend",
+            won,
+            draw: winner === "draw",
+            score:
+              myRole === "black" ? gameState.blackScore : gameState.whiteScore,
+            opponentScore:
+              myRole === "black" ? gameState.whiteScore : gameState.blackScore,
+            duration,
+          }),
+        })
+          .then(() => {
+            // Check for achievement unlocks
+            return fetch("/api/achievements", {
+              method: "POST",
+            });
+          })
+          .then((res) => res.json())
+          .then((data) => {
+            // Show achievement notifications
+            if (data.newlyUnlocked && data.newlyUnlocked.length > 0) {
+              data.newlyUnlocked.forEach((achievement: any) => {
+                toast({
+                  title: "🏆 Achievement Unlocked!",
+                  description: `${achievement.achievement.name}: ${achievement.achievement.description}`,
+                  duration: 5000,
+                });
+              });
+            }
+          })
+          .catch(console.error);
+
+        gameRecordedRef.current = true;
+      }
     }
-  }, [gameState.isGameOver]);
+  }, [
+    gameState.isGameOver,
+    gameState.winner,
+    gameState.blackScore,
+    gameState.whiteScore,
+    websocketState.playerRole,
+    user,
+    dispatch,
+    toast,
+  ]);
 
   // Show draw offer dialog when a draw is offered
   useEffect(() => {
@@ -67,7 +153,7 @@ export default function FriendGamePage() {
       gameState.drawOfferedBy &&
       gameState.drawOfferedBy !== websocketState.playerRole
     ) {
-      setShowDrawOfferDialog(true);
+      dispatch(setShowDrawOfferDialog(true));
       // Play a notification sound
       try {
         const audio = new Audio("/sounds/notification.mp3");
@@ -84,47 +170,35 @@ export default function FriendGamePage() {
         variant: "default",
       });
     } else {
-      setShowDrawOfferDialog(false);
+      dispatch(setShowDrawOfferDialog(false));
     }
-  }, [gameState.drawOfferedBy, websocketState.playerRole]);
+  }, [gameState.drawOfferedBy, websocketState.playerRole, toast, dispatch]);
 
-  // Show rematch offer dialog when a rematch is offered
+  // Auto-create room when page loads
   useEffect(() => {
-    if (
-      gameState.rematchOfferedBy &&
-      gameState.rematchOfferedBy !== websocketState.playerRole
-    ) {
-      setShowRematchOfferDialog(true);
-      // Play a notification sound
-      try {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.volume = 0.5;
-        audio.play().catch((e) => console.log("Audio play failed:", e));
-      } catch (error) {
-        console.log("Audio failed:", error);
-      }
-
-      // Show toast notification
-      toast({
-        title: "Rematch Offer",
-        description: "Your opponent has offered a rematch. Accept or decline?",
-        variant: "default",
-      });
-    } else {
-      setShowRematchOfferDialog(false);
+    if (!hasCreatedRoom && !websocketState.isConnected) {
+      setHasCreatedRoom(true);
+      const playerName =
+        user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+      createGameRoom(playerName);
+      setDialogOpen(false);
     }
-  }, [gameState.rematchOfferedBy, websocketState.playerRole]);
+  }, [hasCreatedRoom, websocketState.isConnected, user, createGameRoom]);
 
   // Handle room creation
   const handleCreateRoom = () => {
-    createGameRoom(playerName || undefined);
+    const playerName =
+      user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+    createGameRoom(playerName);
     setDialogOpen(false);
   };
 
   // Handle joining a room
   const handleJoinRoom = () => {
     if (roomIdToJoin) {
-      joinGameRoom(roomIdToJoin, playerName || undefined);
+      const playerName =
+        user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+      joinGameRoom(roomIdToJoin, playerName);
       setJoinDialogOpen(false);
       setDialogOpen(false);
     }
@@ -152,6 +226,8 @@ export default function FriendGamePage() {
   // Handle game restart
   const handleRestart = () => {
     restartGame();
+    gameStartTimeRef.current = Date.now();
+    gameRecordedRef.current = false;
     toast({
       title: "Game Restarted",
       description: "Starting a new game",
@@ -160,12 +236,12 @@ export default function FriendGamePage() {
 
   // Handle resign
   const handleResign = () => {
-    setShowResignDialog(true);
+    dispatch(setShowResignDialog(true));
   };
 
   const confirmResign = () => {
     resignGame();
-    setShowResignDialog(false);
+    dispatch(setShowResignDialog(false));
     toast({
       title: "Game Resigned",
       description: "You have resigned the game",
@@ -183,7 +259,7 @@ export default function FriendGamePage() {
 
   const handleAcceptDraw = () => {
     acceptDraw();
-    setShowDrawOfferDialog(false);
+    dispatch(setShowDrawOfferDialog(false));
     toast({
       title: "Draw Accepted",
       description: "The game ended in a draw",
@@ -192,37 +268,10 @@ export default function FriendGamePage() {
 
   const handleDeclineDraw = () => {
     declineDraw();
-    setShowDrawOfferDialog(false);
+    dispatch(setShowDrawOfferDialog(false));
     toast({
       title: "Draw Declined",
       description: "You declined the draw offer",
-    });
-  };
-
-  // Handle rematch offers
-  const handleOfferRematch = () => {
-    offerRematch();
-    toast({
-      title: "Rematch Offered",
-      description: "Waiting for opponent's response",
-    });
-  };
-
-  const handleAcceptRematch = () => {
-    acceptRematch();
-    setShowRematchOfferDialog(false);
-    toast({
-      title: "Rematch Accepted",
-      description: "Starting a new game",
-    });
-  };
-
-  const handleDeclineRematch = () => {
-    declineRematch();
-    setShowRematchOfferDialog(false);
-    toast({
-      title: "Rematch Declined",
-      description: "You declined the rematch offer",
     });
   };
 
@@ -230,13 +279,6 @@ export default function FriendGamePage() {
   const getOpponentName = () => {
     return gameState.opponentName || "Opponent";
   };
-
-  // Save player name
-  useEffect(() => {
-    if (playerName) {
-      setStorageItem("playerName", playerName);
-    }
-  }, [playerName]);
 
   return (
     <div className="min-h-screen bg-black relative">
@@ -273,11 +315,15 @@ export default function FriendGamePage() {
                       className="text-white"
                       disabled={!gameState.roomId}
                     >
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        <span className="hidden sm:inline">Copy Room ID</span>
-                        <span className="sm:hidden">Copy ID</span>
-                      </>
+                      {copiedMessage ? (
+                        "Copied!"
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          <span className="hidden sm:inline">Copy Room ID</span>
+                          <span className="sm:hidden">Copy ID</span>
+                        </>
+                      )}
                     </Button>
                   )}
                   {websocketState.isConnected &&
@@ -285,9 +331,8 @@ export default function FriendGamePage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={handleOfferRematch}
+                        onClick={handleRestart}
                         className="text-gray-300 hover:text-white"
-                        title="Offer Rematch"
                       >
                         <RotateCcw className="w-4 h-4" />
                       </Button>
@@ -356,7 +401,6 @@ export default function FriendGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
-            playerColor={websocketState.playerRole as "black" | "white"}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
             opponentName={getOpponentName()}
@@ -393,21 +437,6 @@ export default function FriendGamePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label
-                htmlFor="name"
-                className="text-sm font-medium leading-none"
-              >
-                Your Name
-              </label>
-              <input
-                id="name"
-                value={playerName || ""}
-                onChange={(e) => setPlayerName(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Enter your name"
-              />
-            </div>
             <div className="flex gap-2 justify-center">
               <Button onClick={() => setJoinDialogOpen(true)}>Join Room</Button>
               <Button onClick={handleCreateRoom}>Create Room</Button>
@@ -452,7 +481,7 @@ export default function FriendGamePage() {
       {/* Game Over Dialog */}
       <Dialog
         open={showGameOverDialog && gameState.isGameOver}
-        onOpenChange={setShowGameOverDialog}
+        onOpenChange={(open) => dispatch(setShowGameOverDialog(open))}
       >
         <DialogContent>
           <DialogHeader>
@@ -468,17 +497,20 @@ export default function FriendGamePage() {
           <div className="flex justify-between mt-4">
             <Button
               variant="outline"
-              onClick={() => setShowGameOverDialog(false)}
+              onClick={() => dispatch(setShowGameOverDialog(false))}
             >
               Close
             </Button>
-            <Button onClick={handleOfferRematch}>Offer Rematch</Button>
+            <Button onClick={handleRestart}>Play Again</Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Draw Offer Dialog */}
-      <Dialog open={showDrawOfferDialog} onOpenChange={setShowDrawOfferDialog}>
+      <Dialog
+        open={showDrawOfferDialog}
+        onOpenChange={(open) => dispatch(setShowDrawOfferDialog(open))}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Draw Offered</DialogTitle>
@@ -496,7 +528,10 @@ export default function FriendGamePage() {
       </Dialog>
 
       {/* Resign Confirmation Dialog */}
-      <Dialog open={showResignDialog} onOpenChange={setShowResignDialog}>
+      <Dialog
+        open={showResignDialog}
+        onOpenChange={(open) => dispatch(setShowResignDialog(open))}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Resign Game?</DialogTitle>
@@ -508,7 +543,7 @@ export default function FriendGamePage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowResignDialog(false)}
+              onClick={() => dispatch(setShowResignDialog(false))}
             >
               Cancel
             </Button>
@@ -516,27 +551,6 @@ export default function FriendGamePage() {
               Resign
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rematch Offer Dialog */}
-      <Dialog
-        open={showRematchOfferDialog}
-        onOpenChange={setShowRematchOfferDialog}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rematch Offered</DialogTitle>
-            <DialogDescription>
-              Your opponent has offered a rematch. Do you accept?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-between mt-4">
-            <Button variant="outline" onClick={handleDeclineRematch}>
-              Decline
-            </Button>
-            <Button onClick={handleAcceptRematch}>Accept Rematch</Button>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
