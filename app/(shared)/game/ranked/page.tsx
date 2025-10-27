@@ -61,6 +61,20 @@ function eloDifficultyMap(elo: number): Difficulty {
   return "hard";
 }
 
+// Bot ELO ratings based on difficulty
+function getBotElo(difficulty: Difficulty): number {
+  switch (difficulty) {
+    case "easy":
+      return 1000;
+    case "medium":
+      return 1400;
+    case "hard":
+      return 1800;
+    default:
+      return 1400;
+  }
+}
+
 type GameMode = "searching" | "ai" | "multiplayer";
 
 export default function RankedGamePage() {
@@ -107,10 +121,13 @@ export default function RankedGamePage() {
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [hasStartedMatchmaking, setHasStartedMatchmaking] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [canAbandon, setCanAbandon] = useState(true);
 
   const gameStartTimeRef = useRef<number>(Date.now());
   const gameRecordedRef = useRef<boolean>(false);
   const matchmakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const opponentFoundToastShownRef = useRef<boolean>(false);
+  const matchmakingTimeoutFiredRef = useRef<boolean>(false);
 
   // Multiplayer hook
   const {
@@ -119,6 +136,7 @@ export default function RankedGamePage() {
     makeMove: mpMakeMove,
     restartGame: mpRestartGame,
     resignGame: mpResignGame,
+    abandonGame: mpAbandonGame,
     joinRandomGame,
     leaveRoom,
     offerDraw: mpOfferDraw,
@@ -144,6 +162,12 @@ export default function RankedGamePage() {
       .flat()
       .filter((cell) => cell !== null).length;
     setMoveCount(totalMoves);
+
+    // Can abandon if at most 1 move per player (total pieces <= 6)
+    // Initial setup is 4 pieces, so 6 pieces means 2 moves total (1 per player max)
+    // If more than 6 pieces, both players have made more than 1 move each = must resign
+    const abandonAllowed = totalMoves <= 6;
+    setCanAbandon(abandonAllowed);
   }, [gameState.board]);
 
   // Show tutorial for new users
@@ -197,11 +221,16 @@ export default function RankedGamePage() {
 
   // Auto-start matchmaking when loaded
   useEffect(() => {
+    // Don't start matchmaking if user is not authenticated
+    if (!user) {
+      return;
+    }
+
     if (!isLoading && !hasStartedMatchmaking) {
       setHasStartedMatchmaking(true);
       startMatchmaking();
     }
-  }, [isLoading, hasStartedMatchmaking]);
+  }, [isLoading, hasStartedMatchmaking, user]);
 
   // Handle matchmaking - wait 3 seconds for a player, then use AI
   const startMatchmaking = () => {
@@ -210,6 +239,8 @@ export default function RankedGamePage() {
     dispatch(setGameType("ranked"));
     gameStartTimeRef.current = Date.now();
     gameRecordedRef.current = false;
+    opponentFoundToastShownRef.current = false; // Reset toast flag
+    matchmakingTimeoutFiredRef.current = false; // Reset timeout flag
     dispatch(setReduxEloChange(null));
     dispatch(cancelDrawOffer());
 
@@ -224,36 +255,57 @@ export default function RankedGamePage() {
     matchmakingTimeoutRef.current = setTimeout(() => {
       if (mpGameState.isWaitingForPlayer || !websocketState.isConnected) {
         // No player found, use AI bot
+        // Set flag FIRST to prevent multiplayer detection from overriding
+        matchmakingTimeoutFiredRef.current = true;
+        opponentFoundToastShownRef.current = true; // Prevent any other toasts
+
         dispatch(stopMatchmaking()); // Stop matchmaking
         dispatch(setReduxGameMode("ai"));
         const botNameGenerated = getRandomBotName();
         dispatch(setReduxBotName(botNameGenerated));
         leaveRoom();
-        toast({
-          title: "Opponent Found!",
-          description: `Matched with ${botNameGenerated}`,
-        });
+        // toast({
+        //   title: "Opponent Found!",
+        //   description: `Matched with ${botNameGenerated}`,
+        // });
       }
     }, 3000);
   };
 
   // Check if multiplayer game started
   useEffect(() => {
+    // Don't process multiplayer events if user is not authenticated
+    if (!user) {
+      return;
+    }
+
+    // Don't switch to multiplayer if timeout already fired and we're using AI
+    if (matchmakingTimeoutFiredRef.current) {
+      return;
+    }
+
+    const playerName =
+      user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+
     if (
       websocketState.isConnected &&
       !mpGameState.isWaitingForPlayer &&
-      gameMode === "ai" // Check against "ai" since we initialize with that
+      gameMode === "ai" && // Check against "ai" since we initialize with that
+      mpGameState.opponentName && // Make sure opponent name exists
+      mpGameState.opponentName !== playerName && // Make sure it's not the player's own name
+      !opponentFoundToastShownRef.current // Prevent duplicate toasts
     ) {
       // Real player found!
       if (matchmakingTimeoutRef.current) {
         clearTimeout(matchmakingTimeoutRef.current);
       }
+      opponentFoundToastShownRef.current = true; // Mark toast as shown
       dispatch(stopMatchmaking()); // Stop matchmaking
       dispatch(setReduxGameMode("multiplayer"));
-      dispatch(setOpponent({ name: mpGameState.opponentName || "player" }));
+      dispatch(setOpponent({ name: mpGameState.opponentName }));
       toast({
         title: "Opponent Found!",
-        description: `Matched with ${mpGameState.opponentName || "player"}`,
+        description: `Matched with ${mpGameState.opponentName}`,
       });
     }
   }, [
@@ -263,6 +315,93 @@ export default function RankedGamePage() {
     mpGameState.opponentName,
     toast,
     dispatch,
+    user,
+  ]);
+
+  // Handle disconnect detection in multiplayer mode
+  useEffect(() => {
+    // Only track disconnects when in multiplayer and user is authenticated
+    if (gameMode !== "multiplayer" || !user || gameState.isGameOver) {
+      return;
+    }
+
+    // Detect disconnect (connection lost during active game)
+    if (!websocketState.isConnected && !mpGameState.isWaitingForPlayer) {
+      // Check if enough moves have been made (>1 move per player = >6 pieces)
+      const enoughMovesForPenalty = moveCount > 6;
+
+      if (enoughMovesForPenalty && !gameRecordedRef.current) {
+        // Apply disconnect penalty
+        const duration = Math.floor(
+          (Date.now() - gameStartTimeRef.current) / 1000
+        );
+        const actualMoves = moveCount - 4;
+
+        fetch("/api/games/disconnect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "ranked",
+            duration,
+            moveCount: actualMoves,
+            currentElo: userElo,
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.eloChange) {
+              dispatch(setReduxEloChange(data.eloChange));
+              dispatch(
+                updateElo({
+                  change: data.eloChange,
+                  newElo: data.newElo,
+                })
+              );
+              toast({
+                title: "Disconnected",
+                description: `Connection lost. ELO penalty applied: ${data.eloChange}`,
+                variant: "destructive",
+              });
+            }
+          })
+          .catch(console.error);
+
+        gameRecordedRef.current = true;
+        dispatch(setShowGameOverDialog(true));
+      } else if (!enoughMovesForPenalty && !gameRecordedRef.current) {
+        // Early disconnect, treat as abandon (no penalty)
+        const duration = Math.floor(
+          (Date.now() - gameStartTimeRef.current) / 1000
+        );
+        const actualMoves = moveCount - 4;
+
+        fetch("/api/games/abandon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "ranked",
+            duration,
+            moveCount: actualMoves,
+          }),
+        }).catch(console.error);
+
+        gameRecordedRef.current = true;
+        toast({
+          title: "Disconnected",
+          description: "Connection lost - no ELO penalty (early disconnect)",
+        });
+      }
+    }
+  }, [
+    gameMode,
+    websocketState.isConnected,
+    mpGameState.isWaitingForPlayer,
+    gameState.isGameOver,
+    moveCount,
+    user,
+    userElo,
+    dispatch,
+    toast,
   ]);
 
   // Show auth dialog for guests after 3 games
@@ -295,7 +434,7 @@ export default function RankedGamePage() {
       } else {
         const won = winner === "black";
         const draw = winner === "draw";
-        const botElo = userElo;
+        const botElo = getBotElo(botDifficulty);
         const K = 32;
         const expectedScore = 1 / (1 + Math.pow(10, (botElo - userElo) / 400));
         const actualScore = won ? 1 : draw ? 0.5 : 0;
@@ -506,16 +645,68 @@ export default function RankedGamePage() {
     dispatch(setShowResignDialog(true));
   };
 
-  const confirmResign = () => {
-    let calculatedChange = 0;
+  // Handle abandon (early game, ≤1 move per player, no ELO penalty)
+  const handleAbandon = () => {
+    if (!canAbandon) {
+      // Should not happen, but safeguard
+      return;
+    }
 
-    // Calculate ELO loss for AI mode
-    if (gameMode === "ai" && user) {
-      const botElo = userElo;
+    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+    const actualMoves = moveCount - 4; // Subtract initial 4 pieces
+
+    if (user) {
+      // Record abandon in database (no ELO penalty)
+      fetch("/api/games/abandon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "ranked",
+          duration,
+          moveCount: actualMoves,
+        }),
+      }).catch(console.error);
+    }
+
+    // Mark game as recorded to prevent double recording
+    gameRecordedRef.current = true;
+
+    // Close the game
+    if (gameMode === "multiplayer") {
+      mpResignGame();
+    } else {
+      aiResignGame();
+    }
+
+    dispatch(setShowResignDialog(false));
+    dispatch(setShowGameOverDialog(true));
+
+    toast({
+      title: "Game Abandoned",
+      description: "Match abandoned - no ELO penalty applied",
+    });
+  };
+
+  // Handle resign (late game, >1 move per player, ELO penalty applies)
+  const confirmResign = () => {
+    if (canAbandon) {
+      // If can abandon, call abandon instead
+      handleAbandon();
+      return;
+    }
+
+    let calculatedChange = 0;
+    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+
+    // Calculate ELO loss for resign
+    if (user) {
+      const opponentElo = userElo; // Assume equal opponent for AI/matchmaking
       const K = 32;
-      const expectedScore = 1 / (1 + Math.pow(10, (botElo - userElo) / 400));
+      const expectedScore =
+        1 / (1 + Math.pow(10, (opponentElo - userElo) / 400));
       const actualScore = 0; // Loss
       calculatedChange = Math.round(K * (actualScore - expectedScore));
+
       dispatch(setReduxEloChange(calculatedChange));
       dispatch(
         updateElo({
@@ -525,10 +716,7 @@ export default function RankedGamePage() {
       );
       dispatch(incrementGameStats({ won: false, draw: false, mode: "ranked" }));
 
-      const duration = Math.floor(
-        (Date.now() - gameStartTimeRef.current) / 1000
-      );
-
+      // Record the resignation with ELO penalty
       fetch("/api/games/record", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -539,11 +727,15 @@ export default function RankedGamePage() {
           score: gameState.blackScore,
           opponentScore: gameState.whiteScore,
           duration,
-          difficulty: botDifficulty,
+          difficulty: gameMode === "ai" ? botDifficulty : undefined,
         }),
       }).catch(console.error);
     }
 
+    // Mark game as recorded
+    gameRecordedRef.current = true;
+
+    // Close the game
     if (gameMode === "multiplayer") {
       mpResignGame();
     } else {
@@ -552,14 +744,12 @@ export default function RankedGamePage() {
 
     dispatch(setShowResignDialog(false));
     dispatch(setShowGameOverDialog(true));
-    gameRecordedRef.current = true;
 
     toast({
       title: "Game Resigned",
-      description:
-        user && gameMode === "ai"
-          ? `ELO ${calculatedChange >= 0 ? "+" : ""}${calculatedChange}`
-          : "You resigned the match",
+      description: user
+        ? `ELO ${calculatedChange >= 0 ? "+" : ""}${calculatedChange}`
+        : "You resigned the match",
     });
   };
 
@@ -750,6 +940,60 @@ export default function RankedGamePage() {
         websocketState.playerRole !== gameState.currentPlayer)) ||
     isSearching;
 
+  // Redirect non-authenticated users
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center relative">
+        <div
+          className="absolute inset-0 w-full h-full"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), 
+              linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+            `,
+            backgroundSize: "40px 40px",
+          }}
+        ></div>
+        <div className="text-center relative z-10 max-w-md px-4">
+          <div className="mb-6">
+            <Trophy className="h-20 w-20 mx-auto mb-4 text-yellow-400" />
+            <h1 className="text-3xl font-bold text-white mb-4">
+              Ranked Mode - Login Required
+            </h1>
+            <p className="text-gray-400 mb-6">
+              Sign in to play ranked matches, compete on the leaderboard, and
+              track your ELO rating!
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Link href="/sign-in">
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/sign-up">
+              <Button
+                variant="outline"
+                className="w-full bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white"
+              >
+                Create Account
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button
+                variant="ghost"
+                className="w-full text-gray-400 hover:text-white"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Home
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black relative">
       <div
@@ -854,13 +1098,19 @@ export default function RankedGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
+            playerColor={websocketState.playerRole as "black" | "white"}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
+            playerName={
+              user?.displayName || user?.primaryEmail?.split("@")[0] || "You"
+            }
             opponentName={getOpponentName()}
             gameMode="ranked"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
             onDraw={handleOfferDraw}
+            playerElo={userElo}
+            showAbandon={canAbandon}
           />
 
           {!isSearching && !gameState.isGameOver && (
@@ -1021,11 +1271,11 @@ export default function RankedGamePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {moveCount < 2 ? "Abort Match?" : "Resign Game?"}
+              {canAbandon ? "Abandon Match?" : "Resign Game?"}
             </DialogTitle>
             <DialogDescription>
-              {moveCount < 2
-                ? "Are you sure you want to abort this match? No ELO will be lost."
+              {canAbandon
+                ? "Are you sure you want to abandon this match? The abandon will be recorded, but you won't lose ELO."
                 : `Are you sure you want to resign? ${
                     user ? "This will result in an ELO loss." : ""
                   }`}
@@ -1039,7 +1289,7 @@ export default function RankedGamePage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmResign}>
-              {moveCount < 2 ? "Abort" : "Resign"}
+              {canAbandon ? "Abandon" : "Resign"}
             </Button>
           </DialogFooter>
         </DialogContent>

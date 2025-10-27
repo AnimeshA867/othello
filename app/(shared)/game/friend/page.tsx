@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, RotateCcw, Copy, Users } from "lucide-react";
+import { ArrowLeft, RotateCcw, Copy, Users, Lock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,27 @@ export default function FriendGamePage() {
   const [roomIdToJoin, setRoomIdToJoin] = useState("");
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [hasCreatedRoom, setHasCreatedRoom] = useState(false);
+  const [moveCount, setMoveCount] = useState(0);
+  const [canAbandon, setCanAbandon] = useState(true);
+
+  // Close initial dialog when connected
+  useEffect(() => {
+    if (websocketState.isConnected && dialogOpen) {
+      setDialogOpen(false);
+    }
+  }, [websocketState.isConnected, dialogOpen]);
+
+  // Track move count for abandon logic
+  useEffect(() => {
+    const totalMoves = gameState.board
+      .flat()
+      .filter((cell) => cell !== null).length;
+    setMoveCount(totalMoves);
+
+    // Can abandon if at most 1 move per player (total pieces <= 6)
+    const abandonAllowed = totalMoves <= 6;
+    setCanAbandon(abandonAllowed);
+  }, [gameState.board]);
 
   // Set game type on mount
   useEffect(() => {
@@ -174,19 +195,30 @@ export default function FriendGamePage() {
     }
   }, [gameState.drawOfferedBy, websocketState.playerRole, toast, dispatch]);
 
-  // Auto-create room when page loads
+  // Show toast notification when room is created
   useEffect(() => {
-    if (!hasCreatedRoom && !websocketState.isConnected) {
+    if (websocketState.isConnected && gameState.roomId && !hasCreatedRoom) {
       setHasCreatedRoom(true);
-      const playerName =
-        user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
-      createGameRoom(playerName);
-      setDialogOpen(false);
+      toast({
+        title: "Room Created!",
+        description: `Room ID: ${gameState.roomId}. Share this with your friend!`,
+        duration: 5000,
+      });
     }
-  }, [hasCreatedRoom, websocketState.isConnected, user, createGameRoom]);
+  }, [websocketState.isConnected, gameState.roomId, hasCreatedRoom, toast]);
 
   // Handle room creation
   const handleCreateRoom = () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description:
+          "Please sign in to create a room. You can still join rooms created by others!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const playerName =
       user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
     createGameRoom(playerName);
@@ -218,6 +250,13 @@ export default function FriendGamePage() {
     }
   };
 
+  // Join room from sidebar
+  const handleJoinRoomFromSidebar = (roomId: string) => {
+    const playerName =
+      user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+    joinGameRoom(roomId, playerName);
+  };
+
   // Handle making a move
   const handleMove = async (row: number, col: number) => {
     return await makeMove(row, col);
@@ -239,7 +278,47 @@ export default function FriendGamePage() {
     dispatch(setShowResignDialog(true));
   };
 
+  // Handle abandon (early game, ≤1 move per player)
+  const handleAbandon = () => {
+    if (!canAbandon) {
+      return;
+    }
+
+    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+    const actualMoves = moveCount - 4;
+
+    if (user) {
+      // Record abandon for friend mode (no ELO impact)
+      fetch("/api/games/abandon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "friend",
+          duration,
+          moveCount: actualMoves,
+        }),
+      }).catch(console.error);
+    }
+
+    gameRecordedRef.current = true;
+    resignGame();
+    dispatch(setShowResignDialog(false));
+
+    toast({
+      title: "Game Abandoned",
+      description: "Match abandoned",
+    });
+  };
+
+  // Handle resign (late game or explicit resign)
   const confirmResign = () => {
+    if (canAbandon) {
+      // If can abandon, call abandon instead
+      handleAbandon();
+      return;
+    }
+
+    // Regular resignation (no ELO in friend mode anyway)
     resignGame();
     dispatch(setShowResignDialog(false));
     toast({
@@ -341,7 +420,7 @@ export default function FriendGamePage() {
               </div>
               <h1 className="text-2xl font-bold text-white mb-2">
                 <Users className="w-6 h-6 inline-block mr-2" />
-                Multiplayer Game
+                Play with a Friend
               </h1>
               <div className="flex justify-center gap-2">
                 {websocketState.isConnected ? (
@@ -401,12 +480,20 @@ export default function FriendGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
+            playerColor={websocketState.playerRole as "black" | "white"}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
+            playerName={
+              user?.displayName || user?.primaryEmail?.split("@")[0] || "You"
+            }
             opponentName={getOpponentName()}
             gameMode="friend"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
+            roomId={gameState.roomId ?? undefined}
+            onCopyRoomId={handleCopyRoomId}
+            onJoinRoom={handleJoinRoomFromSidebar}
+            showAbandon={canAbandon}
           />
 
           {/* Draw offer button */}
@@ -425,40 +512,69 @@ export default function FriendGamePage() {
       </div>
 
       {/* Initial dialog for creating/joining a room */}
-      <Dialog
-        open={dialogOpen && !websocketState.isConnected}
-        onOpenChange={setDialogOpen}
-      >
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-gradient-to-br from-gray-900 to-gray-800 border-white/20">
           <DialogHeader>
-            <DialogTitle>Play with a Friend</DialogTitle>
-            <DialogDescription>
-              Create a new game room or join an existing one.
+            <DialogTitle className="text-white text-xl flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Play with a Friend
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Create a new game room or join an existing one using a Room ID.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="flex gap-2 justify-center">
-              <Button onClick={() => setJoinDialogOpen(true)}>Join Room</Button>
-              <Button onClick={handleCreateRoom}>Create Room</Button>
+            <Button
+              onClick={handleCreateRoom}
+              className={`w-full ${
+                !user
+                  ? "bg-blue-600/50 hover:bg-blue-700/50 text-white relative"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            >
+              {!user && <Lock className="w-4 h-4 mr-2" />}
+              Create New Room
+            </Button>
+            {!user && (
+              <p className="text-xs text-yellow-400 text-center -mt-2">
+                🔒 Sign in to create rooms
+              </p>
+            )}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-gray-800 px-2 text-gray-400">Or</span>
+              </div>
             </div>
+            <Button
+              onClick={() => setJoinDialogOpen(true)}
+              variant="outline"
+              className="w-full bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white"
+            >
+              Join Existing Room
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Dialog for joining an existing room */}
       <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-gradient-to-br from-gray-900 to-gray-800 border-white/20">
           <DialogHeader>
-            <DialogTitle>Join Game Room</DialogTitle>
-            <DialogDescription>
-              Enter the room ID provided by your friend.
+            <DialogTitle className="text-white text-xl">
+              Join Game Room
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Enter the Room ID provided by your friend.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <label
                 htmlFor="roomId"
-                className="text-sm font-medium leading-none"
+                className="text-sm font-medium leading-none text-white"
               >
                 Room ID
               </label>
@@ -466,14 +582,31 @@ export default function FriendGamePage() {
                 id="roomId"
                 value={roomIdToJoin}
                 onChange={(e) => setRoomIdToJoin(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-gray-500"
                 placeholder="Enter room ID"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && roomIdToJoin.trim()) {
+                    handleJoinRoom();
+                  }
+                }}
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setJoinDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleJoinRoom}>Join Game</Button>
+          <DialogFooter className="gap-2">
+            <Button
+              onClick={() => setJoinDialogOpen(false)}
+              variant="outline"
+              className="bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleJoinRoom}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!roomIdToJoin.trim()}
+            >
+              Join Game
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -527,17 +660,20 @@ export default function FriendGamePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Resign Confirmation Dialog */}
+      {/* Resign/Abandon Confirmation Dialog */}
       <Dialog
         open={showResignDialog}
         onOpenChange={(open) => dispatch(setShowResignDialog(open))}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resign Game?</DialogTitle>
+            <DialogTitle>
+              {canAbandon ? "Abandon Match?" : "Resign Game?"}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to resign this game? This action cannot be
-              undone.
+              {canAbandon
+                ? "Are you sure you want to abandon this match? The abandon will be tracked for statistics."
+                : "Are you sure you want to resign this game? This action cannot be undone."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -548,7 +684,7 @@ export default function FriendGamePage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmResign}>
-              Resign
+              {canAbandon ? "Abandon" : "Resign"}
             </Button>
           </DialogFooter>
         </DialogContent>

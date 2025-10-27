@@ -14,6 +14,33 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronDown, Target, RotateCcw, Users, Trophy } from "lucide-react";
 import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "How to Play Othello (Reversi) - Rules, Strategies & Tips",
+  description:
+    "Learn how to play Othello (Reversi), the classic black and white strategy board game. Complete guide with rules, strategies, tips for beginners and advanced tactics to master this disc-flipping game.",
+  keywords: [
+    "how to play othello",
+    "othello rules",
+    "reversi rules",
+    "othello strategy",
+    "reversi strategy",
+    "othello tips",
+    "learn othello",
+    "othello guide",
+    "black and white board game rules",
+    "disc flipping game rules",
+    "othello for beginners",
+    "reversi tutorial",
+    "othello tactics",
+  ],
+  openGraph: {
+    title: "How to Play Othello (Reversi) - Complete Guide",
+    description:
+      "Master the classic black and white strategy board game with our comprehensive guide. Learn rules, strategies, and winning tactics.",
+  },
+};
 
 export default function HowToPlayPage() {
   return (
@@ -35,11 +62,11 @@ export default function HowToPlayPage() {
         {/* Header */}
         <div className="text-center mb-12 md:mb-16">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4 md:mb-6 tracking-tight">
-            How to Play Othello
+            How to Play Othello (Reversi)
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Master the classic strategy game with these simple rules and
-            advanced tactics.
+            Master the classic black and white strategy board game with these
+            simple rules and advanced tactics. Learn the art of disc flipping!
           </p>
         </div>
 

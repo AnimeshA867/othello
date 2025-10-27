@@ -129,7 +129,14 @@ export async function POST(request: NextRequest) {
 
     // For ranked mode, calculate and update ELO
     if (mode === "ranked") {
-      const botElo = currentStats.eloRating; // Bot uses player's ELO
+      // Determine bot ELO based on difficulty
+      let botElo = 1400; // Default medium
+      if (difficulty === "easy") {
+        botElo = 1000;
+      } else if (difficulty === "hard") {
+        botElo = 1800;
+      }
+
       const K = 32;
       const expectedScore =
         1 / (1 + Math.pow(10, (botElo - currentStats.eloRating) / 400));

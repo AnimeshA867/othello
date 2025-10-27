@@ -208,6 +208,16 @@ export default function AIGamePage() {
   };
 
   const handleDifficultyChange = (newDifficulty: Difficulty) => {
+    // Restrict hard difficulty for non-authenticated users
+    if (newDifficulty === "hard" && !user) {
+      toast({
+        title: "Login Required",
+        description: "Please sign in to play on hard difficulty",
+        variant: "destructive",
+      });
+      return;
+    }
+
     dispatch(setDifficulty(newDifficulty));
     changeDifficulty(newDifficulty);
     gameStartTimeRef.current = Date.now();
@@ -322,8 +332,12 @@ export default function AIGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
+            playerColor="black"
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
+            playerName={
+              user?.displayName || user?.primaryEmail?.split("@")[0] || "You"
+            }
             opponentName="AI"
             gameMode="ai"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
@@ -331,6 +345,9 @@ export default function AIGamePage() {
             onUndo={handleUndo}
             canUndo={gameState.moveHistory.length > 0 && !isAiThinking}
             isAiThinking={isAiThinking}
+            difficulty={currentDifficulty}
+            onDifficultyChange={handleDifficultyChange}
+            isAuthenticated={!!user}
           />
         </div>
       </div>

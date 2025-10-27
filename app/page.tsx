@@ -57,11 +57,13 @@ export default function HomePage() {
             </div>
             <div className="relative z-10">
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 md:mb-6 tracking-tight">
-                Play Othello
+                Play Othello Online
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
-                Master the classic strategy game. Flip your opponent&apos;s
-                pieces and dominate the board in this timeless battle of wits.
+                Master the classic black and white strategy board game. Also
+                known as Reversi, flip your opponent&apos;s pieces and dominate
+                the 8x8 board in this timeless battle of wits. Play for free -
+                no download required!
               </p>
             </div>
           </div>
@@ -207,11 +209,21 @@ export default function HomePage() {
             </h3>
             <p className="text-muted-foreground mb-4">
               Othello, also known as Reversi, is a timeless strategy board game
-              that has captivated players for generations. The game is played on
-              an 8x8 board with black and white pieces. The objective is simple
-              yet challenging: outflank your opponent's pieces to flip them to
-              your color, ultimately controlling the majority of the board when
-              the game ends.
+              that has captivated players for generations. This classic black
+              and white board game is played on an 8x8 grid with disc-shaped
+              pieces that are black on one side and white on the other. The
+              objective is simple yet challenging: outflank your opponent's
+              pieces to flip them to your color, ultimately controlling the
+              majority of the board when the game ends.
+            </p>
+            <p className="text-muted-foreground mb-4">
+              As one of the most popular abstract strategy games, Othello
+              combines simple rules with deep tactical gameplay. This two-player
+              disc game requires you to think ahead, anticipate your opponent's
+              moves, and master the art of piece placement. The iconic black and
+              white pieces create a visually striking game that's easy to learn
+              but challenging to master - making it perfect for both casual
+              players and competitive strategists.
             </p>
 
             <h3 className="text-2xl font-semibold mb-4 mt-8 text-foreground">

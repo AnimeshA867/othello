@@ -45,12 +45,14 @@ export function useUnifiedMultiplayerGame() {
     makeMove: sendMove,
     restartGame: sendRestart,
     resignGame: sendResign,
+    abandonGame: sendAbandon,
     offerDraw: sendDrawOffer,
     acceptDraw: sendAcceptDraw,
     declineDraw: sendDeclineDraw,
     offerRematch: sendRematchOffer,
     acceptRematch: sendAcceptRematch,
     declineRematch: sendDeclineRematch,
+
     disconnect,
     onMessage,
   } = useWebSocketGame();
@@ -344,6 +346,9 @@ export function useUnifiedMultiplayerGame() {
   const resignGame = useCallback(() => {
     sendResign();
   }, [sendResign]);
+  const abandonGame = useCallback(() => {
+    sendAbandon();
+  }, [sendAbandon]);
 
   const offerDraw = useCallback(() => {
     sendDrawOffer();
@@ -420,6 +425,7 @@ export function useUnifiedMultiplayerGame() {
     makeMove,
     restartGame,
     resignGame,
+    abandonGame,
     offerDraw,
     acceptDraw,
     declineDraw,
@@ -443,6 +449,7 @@ export function useRankedMultiplayerGame() {
     makeMove: sendMove,
     restartGame: sendRestart,
     resignGame: sendResign,
+    abandonGame: sendAbandon,
     offerDraw: sendDrawOffer,
     acceptDraw: sendAcceptDraw,
     declineDraw: sendDeclineDraw,
@@ -724,6 +731,10 @@ export function useRankedMultiplayerGame() {
     sendResign();
   }, [sendResign]);
 
+  const abandonGame = useCallback(() => {
+    sendAbandon();
+  }, [sendAbandon]);
+
   const offerDraw = useCallback(() => {
     sendDrawOffer();
   }, [sendDrawOffer]);
@@ -741,6 +752,7 @@ export function useRankedMultiplayerGame() {
     makeMove,
     restartGame,
     resignGame,
+    abandonGame,
     offerDraw,
     acceptDraw,
     declineDraw,

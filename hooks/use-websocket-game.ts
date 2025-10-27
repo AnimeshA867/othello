@@ -67,8 +67,10 @@ interface UseWebSocketGameReturn {
   makeMove: (row: number, col: number) => void;
   restartGame: () => void;
   resignGame: () => void;
+  abandonGame: () => void;
   offerDraw: () => void;
   acceptDraw: () => void;
+
   declineDraw: () => void;
   offerRematch: () => void;
   acceptRematch: () => void;
@@ -377,6 +379,9 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   const resignGame = useCallback(() => {
     sendMessage({ type: "resign_game" });
   }, [sendMessage]);
+  const abandonGame = useCallback(() => {
+    sendMessage({ type: "resign_game" });
+  }, [sendMessage]);
 
   const offerDraw = useCallback(() => {
     console.log("Sending offer_draw message");
@@ -449,6 +454,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     makeMove,
     restartGame,
     resignGame,
+    abandonGame,
     offerDraw,
     acceptDraw,
     declineDraw,
