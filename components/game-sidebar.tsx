@@ -295,49 +295,55 @@ export function GameSidebar({
 
       {/* Room Management for Friend Mode */}
       {gameMode === "friend" && (
-        <Card className="bg-white/10 backdrop-blur-sm border-white/20 transition-all duration-300 hover:bg-white/15">
+        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm border-blue-500/30 transition-all duration-300 hover:border-blue-400/50 shadow-lg">
           <CardHeader className="pb-2 lg:pb-3">
             <CardTitle className="text-white text-base lg:text-lg flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <Users className="w-5 h-5 text-blue-400" />
               Room
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {roomId ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={roomId}
-                    readOnly
-                    className="bg-white/5 border-white/20 text-white text-xs lg:text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="bg-transparent border-white/30 text-white hover:bg-white/20 hover:text-white transition-all duration-300"
-                    onClick={onCopyRoomId}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
+              <div className="space-y-3">
+                <div className="bg-black/20 p-3 rounded-lg border border-white/10">
+                  <p className="text-xs text-gray-400 mb-2">Room ID:</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={roomId}
+                      readOnly
+                      className="bg-white/5 border-white/20 text-white font-mono text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="bg-blue-600 border-blue-500 text-white hover:bg-blue-700 hover:border-blue-400 transition-all duration-300"
+                      onClick={onCopyRoomId}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-400">
-                  Share this Room ID with your friend
-                </p>
+                <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+                  <p className="text-xs text-blue-300 text-center">
+                    💡 Share this ID with your friend to join
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400 text-center py-2">
-                  Waiting for room to be created...
+                <p className="text-sm text-gray-300 text-center py-3 bg-black/20 rounded-lg">
+                  🔄 Waiting for room...
                 </p>
               </div>
             )}
             {onJoinRoom && !roomId && (
               <Button
                 variant="outline"
-                className="w-full bg-transparent border-white/30 text-white hover:bg-white/20 hover:text-white transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
+                className="w-full bg-blue-600 border-blue-500 text-white hover:bg-blue-700 hover:border-blue-400 transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
                 onClick={() => setShowJoinDialog(true)}
               >
-                Join Room
+                <Users className="w-4 h-4 mr-2" />
+                Join Another Room
               </Button>
             )}
           </CardContent>

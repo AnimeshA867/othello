@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ArrowLeft, RotateCcw, Copy, Users, Lock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ export default function FriendGamePage() {
 
   const gameStartTimeRef = useRef<number>(Date.now());
   const gameRecordedRef = useRef<boolean>(false);
+  const gameOverDialogShownRef = useRef<boolean>(false);
 
   // Local UI state
   const [dialogOpen, setDialogOpen] = useState(true);
@@ -68,6 +69,8 @@ export default function FriendGamePage() {
   const [hasCreatedRoom, setHasCreatedRoom] = useState(false);
   const [moveCount, setMoveCount] = useState(0);
   const [canAbandon, setCanAbandon] = useState(true);
+  const [isRoomCreator, setIsRoomCreator] = useState(false);
+  const [isGameEnding, setIsGameEnding] = useState(false); // Track if game is ending
 
   // Close initial dialog when connected
   useEffect(() => {
@@ -95,11 +98,17 @@ export default function FriendGamePage() {
 
   // Show game over dialog when game ends
   useEffect(() => {
-    if (gameState.isGameOver) {
+    if (
+      gameState.isGameOver &&
+      !gameRecordedRef.current &&
+      !gameOverDialogShownRef.current
+    ) {
       dispatch(setShowGameOverDialog(true));
+      gameOverDialogShownRef.current = true;
+      setIsGameEnding(true); // Mark game as ending
 
       // Record game result for authenticated users
-      if (!gameRecordedRef.current && user) {
+      if (user) {
         const myRole = websocketState.playerRole;
         const winner = gameState.winner;
         const duration = Math.floor(
@@ -172,17 +181,10 @@ export default function FriendGamePage() {
   useEffect(() => {
     if (
       gameState.drawOfferedBy &&
-      gameState.drawOfferedBy !== websocketState.playerRole
+      gameState.drawOfferedBy !== websocketState.playerRole &&
+      !showDrawOfferDialog
     ) {
       dispatch(setShowDrawOfferDialog(true));
-      // Play a notification sound
-      try {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.volume = 0.5;
-        audio.play().catch((e) => console.log("Audio play failed:", e));
-      } catch (error) {
-        console.log("Audio failed:", error);
-      }
 
       // Show toast notification
       toast({
@@ -190,14 +192,26 @@ export default function FriendGamePage() {
         description: "Your opponent has offered a draw. Accept or decline?",
         variant: "default",
       });
-    } else {
+    } else if (!gameState.drawOfferedBy && showDrawOfferDialog) {
+      // Close dialog when draw offer is resolved (accepted/declined/cancelled)
       dispatch(setShowDrawOfferDialog(false));
     }
-  }, [gameState.drawOfferedBy, websocketState.playerRole, toast, dispatch]);
+  }, [
+    gameState.drawOfferedBy,
+    websocketState.playerRole,
+    showDrawOfferDialog,
+    toast,
+    dispatch,
+  ]);
 
-  // Show toast notification when room is created
+  // Show toast notification when room is created (only for creator)
   useEffect(() => {
-    if (websocketState.isConnected && gameState.roomId && !hasCreatedRoom) {
+    if (
+      websocketState.isConnected &&
+      gameState.roomId &&
+      !hasCreatedRoom &&
+      isRoomCreator
+    ) {
       setHasCreatedRoom(true);
       toast({
         title: "Room Created!",
@@ -205,10 +219,16 @@ export default function FriendGamePage() {
         duration: 5000,
       });
     }
-  }, [websocketState.isConnected, gameState.roomId, hasCreatedRoom, toast]);
+  }, [
+    websocketState.isConnected,
+    gameState.roomId,
+    hasCreatedRoom,
+    isRoomCreator,
+    toast,
+  ]);
 
   // Handle room creation
-  const handleCreateRoom = () => {
+  const handleCreateRoom = useCallback(() => {
     if (!user) {
       toast({
         title: "Login Required",
@@ -221,23 +241,25 @@ export default function FriendGamePage() {
 
     const playerName =
       user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+    setIsRoomCreator(true); // Mark as room creator
     createGameRoom(playerName);
     setDialogOpen(false);
-  };
+  }, [user, createGameRoom, toast]);
 
   // Handle joining a room
-  const handleJoinRoom = () => {
+  const handleJoinRoom = useCallback(() => {
     if (roomIdToJoin) {
       const playerName =
         user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+      setIsRoomCreator(false); // Mark as joiner, not creator
       joinGameRoom(roomIdToJoin, playerName);
       setJoinDialogOpen(false);
       setDialogOpen(false);
     }
-  };
+  }, [roomIdToJoin, user, joinGameRoom]);
 
   // Copy room ID to clipboard
-  const handleCopyRoomId = () => {
+  const handleCopyRoomId = useCallback(() => {
     if (gameState.roomId) {
       navigator.clipboard.writeText(gameState.roomId);
       setCopiedMessage(true);
@@ -248,42 +270,53 @@ export default function FriendGamePage() {
         description: "Share this ID with your friend to join the game",
       });
     }
-  };
+  }, [gameState.roomId, toast]);
 
   // Join room from sidebar
-  const handleJoinRoomFromSidebar = (roomId: string) => {
-    const playerName =
-      user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
-    joinGameRoom(roomId, playerName);
-  };
+  const handleJoinRoomFromSidebar = useCallback(
+    (roomId: string) => {
+      const playerName =
+        user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
+      setIsRoomCreator(false); // Mark as joiner
+      joinGameRoom(roomId, playerName);
+    },
+    [user, joinGameRoom]
+  );
 
   // Handle making a move
-  const handleMove = async (row: number, col: number) => {
-    return await makeMove(row, col);
-  };
+  const handleMove = useCallback(
+    async (row: number, col: number) => {
+      return await makeMove(row, col);
+    },
+    [makeMove]
+  );
 
   // Handle game restart
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     restartGame();
     gameStartTimeRef.current = Date.now();
     gameRecordedRef.current = false;
+    gameOverDialogShownRef.current = false;
+    setIsGameEnding(false); // Reset game ending state
+    dispatch(setShowGameOverDialog(false));
     toast({
       title: "Game Restarted",
       description: "Starting a new game",
     });
-  };
+  }, [restartGame, dispatch, toast]);
 
   // Handle resign
-  const handleResign = () => {
+  const handleResign = useCallback(() => {
     dispatch(setShowResignDialog(true));
-  };
+  }, [dispatch]);
 
   // Handle abandon (early game, ≤1 move per player)
-  const handleAbandon = () => {
+  const handleAbandon = useCallback(() => {
     if (!canAbandon) {
       return;
     }
 
+    setIsGameEnding(true); // Disable board immediately
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
     const actualMoves = moveCount - 4;
 
@@ -308,16 +341,17 @@ export default function FriendGamePage() {
       title: "Game Abandoned",
       description: "Match abandoned",
     });
-  };
+  }, [canAbandon, moveCount, user, resignGame, dispatch, toast]);
 
   // Handle resign (late game or explicit resign)
-  const confirmResign = () => {
+  const confirmResign = useCallback(() => {
     if (canAbandon) {
       // If can abandon, call abandon instead
       handleAbandon();
       return;
     }
 
+    setIsGameEnding(true); // Disable board immediately
     // Regular resignation (no ELO in friend mode anyway)
     resignGame();
     dispatch(setShowResignDialog(false));
@@ -325,39 +359,45 @@ export default function FriendGamePage() {
       title: "Game Resigned",
       description: "You have resigned the game",
     });
-  };
+  }, [canAbandon, handleAbandon, resignGame, dispatch, toast]);
 
   // Handle draw offers
-  const handleOfferDraw = () => {
+  const handleOfferDraw = useCallback(() => {
     offerDraw();
     toast({
       title: "Draw Offered",
       description: "Waiting for opponent's response",
     });
-  };
+  }, [offerDraw]);
 
-  const handleAcceptDraw = () => {
+  const handleAcceptDraw = useCallback(() => {
+    setIsGameEnding(true); // Disable board immediately
     acceptDraw();
-    dispatch(setShowDrawOfferDialog(false));
+    // Don't close dialog here - let the useEffect handle it when drawOfferedBy becomes null
     toast({
       title: "Draw Accepted",
       description: "The game ended in a draw",
     });
-  };
+  }, [acceptDraw, toast]);
 
-  const handleDeclineDraw = () => {
+  const handleDeclineDraw = useCallback(() => {
     declineDraw();
-    dispatch(setShowDrawOfferDialog(false));
+    // Don't close dialog here - let the useEffect handle it when drawOfferedBy becomes null
     toast({
       title: "Draw Declined",
       description: "You declined the draw offer",
     });
-  };
+  }, [declineDraw]);
 
   // Get opponent name based on player role
-  const getOpponentName = () => {
+  const opponentName = useMemo(() => {
     return gameState.opponentName || "Opponent";
-  };
+  }, [gameState.opponentName]);
+
+  // Memoize player name
+  const playerName = useMemo(() => {
+    return user?.displayName || user?.primaryEmail?.split("@")[0] || "You";
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-black relative">
@@ -460,7 +500,9 @@ export default function FriendGamePage() {
             <OthelloBoard
               board={gameState.board}
               validMoves={
-                websocketState.playerRole === gameState.currentPlayer
+                websocketState.playerRole === gameState.currentPlayer &&
+                !gameState.isGameOver &&
+                !isGameEnding
                   ? gameState.validMoves
                   : []
               }
@@ -470,7 +512,8 @@ export default function FriendGamePage() {
               disabled={
                 gameState.isGameOver ||
                 gameState.isWaitingForPlayer ||
-                websocketState.playerRole !== gameState.currentPlayer
+                websocketState.playerRole !== gameState.currentPlayer ||
+                isGameEnding
               }
             />
           </div>
@@ -483,13 +526,12 @@ export default function FriendGamePage() {
             playerColor={websocketState.playerRole as "black" | "white"}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
-            playerName={
-              user?.displayName || user?.primaryEmail?.split("@")[0] || "You"
-            }
-            opponentName={getOpponentName()}
+            playerName={playerName}
+            opponentName={opponentName}
             gameMode="friend"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
+            onDraw={handleOfferDraw}
             roomId={gameState.roomId ?? undefined}
             onCopyRoomId={handleCopyRoomId}
             onJoinRoom={handleJoinRoomFromSidebar}

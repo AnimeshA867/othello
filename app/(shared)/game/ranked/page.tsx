@@ -122,12 +122,14 @@ export default function RankedGamePage() {
   const [hasStartedMatchmaking, setHasStartedMatchmaking] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [canAbandon, setCanAbandon] = useState(true);
+  const [isGameEnding, setIsGameEnding] = useState(false);
 
   const gameStartTimeRef = useRef<number>(Date.now());
   const gameRecordedRef = useRef<boolean>(false);
   const matchmakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const opponentFoundToastShownRef = useRef<boolean>(false);
   const matchmakingTimeoutFiredRef = useRef<boolean>(false);
+  const gameOverDialogShownRef = useRef<boolean>(false);
 
   // Multiplayer hook
   const {
@@ -418,8 +420,15 @@ export default function RankedGamePage() {
 
   // Record game result for AI mode
   useEffect(() => {
-    if (gameMode === "ai" && gameState.isGameOver && !gameRecordedRef.current) {
+    if (
+      gameMode === "ai" &&
+      gameState.isGameOver &&
+      !gameRecordedRef.current &&
+      !gameOverDialogShownRef.current
+    ) {
       dispatch(setShowGameOverDialog(true));
+      gameOverDialogShownRef.current = true;
+      setIsGameEnding(true);
 
       const winner = gameState.winner;
       const duration = Math.floor(
@@ -492,9 +501,12 @@ export default function RankedGamePage() {
     if (
       gameMode === "multiplayer" &&
       gameState.isGameOver &&
-      !gameRecordedRef.current
+      !gameRecordedRef.current &&
+      !gameOverDialogShownRef.current
     ) {
       dispatch(setShowGameOverDialog(true));
+      gameOverDialogShownRef.current = true;
+      setIsGameEnding(true);
 
       if (user) {
         const myRole = websocketState.playerRole;
@@ -635,6 +647,8 @@ export default function RankedGamePage() {
     dispatch(setShowGameOverDialog(false));
     dispatch(resetGame());
     setHasStartedMatchmaking(false);
+    setIsGameEnding(false);
+    gameOverDialogShownRef.current = false;
     toast({
       title: "Finding New Match",
       description: "Searching for a new opponent...",
@@ -652,6 +666,7 @@ export default function RankedGamePage() {
       return;
     }
 
+    setIsGameEnding(true);
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
     const actualMoves = moveCount - 4; // Subtract initial 4 pieces
 
@@ -695,6 +710,7 @@ export default function RankedGamePage() {
       return;
     }
 
+    setIsGameEnding(true);
     let calculatedChange = 0;
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
 
@@ -824,6 +840,7 @@ export default function RankedGamePage() {
   };
 
   const handleAcceptDraw = () => {
+    setIsGameEnding(true);
     if (gameMode === "multiplayer") {
       mpAcceptDraw();
       dispatch(setShowDrawOfferDialog(false));
@@ -836,7 +853,7 @@ export default function RankedGamePage() {
       let calculatedChange = 0;
 
       if (user) {
-        const botElo = userElo;
+        const botElo = getBotElo(botDifficulty);
         const K = 32;
         const expectedScore = 1 / (1 + Math.pow(10, (botElo - userElo) / 400));
         const actualScore = 0.5;
@@ -938,7 +955,8 @@ export default function RankedGamePage() {
     (gameMode === "multiplayer" &&
       (mpGameState.isWaitingForPlayer ||
         websocketState.playerRole !== gameState.currentPlayer)) ||
-    isSearching;
+    isSearching ||
+    isGameEnding;
 
   // Redirect non-authenticated users
   if (!user) {
@@ -1080,10 +1098,10 @@ export default function RankedGamePage() {
             <OthelloBoard
               board={gameState.board}
               validMoves={
-                gameMode === "multiplayer" &&
-                websocketState.playerRole === gameState.currentPlayer
-                  ? gameState.validMoves
-                  : gameMode === "ai"
+                !isDisabled &&
+                ((gameMode === "multiplayer" &&
+                  websocketState.playerRole === gameState.currentPlayer) ||
+                  gameMode === "ai")
                   ? gameState.validMoves
                   : []
               }
@@ -1196,7 +1214,7 @@ export default function RankedGamePage() {
       {/* Game Over Dialog */}
       <Dialog
         open={showGameOverDialog && gameState.isGameOver}
-        onOpenChange={setShowGameOverDialog}
+        onOpenChange={(open) => dispatch(setShowGameOverDialog(open))}
       >
         <DialogContent>
           <DialogHeader>

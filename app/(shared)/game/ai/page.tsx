@@ -48,7 +48,9 @@ export default function AIGamePage() {
   const user = useUser();
   const gameStartTimeRef = useRef<number>(Date.now());
   const gameRecordedRef = useRef<boolean>(false);
+  const gameOverDialogShownRef = useRef<boolean>(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [isGameEnding, setIsGameEnding] = useState(false);
 
   const {
     gameState,
@@ -81,7 +83,14 @@ export default function AIGamePage() {
 
   // Record game result when game is over
   useEffect(() => {
-    if (gameState.isGameOver && !gameRecordedRef.current && user) {
+    if (
+      gameState.isGameOver &&
+      !gameRecordedRef.current &&
+      !gameOverDialogShownRef.current &&
+      user
+    ) {
+      gameOverDialogShownRef.current = true;
+      setIsGameEnding(true);
       const winner = gameState.winner;
       const duration = Math.floor(
         (Date.now() - gameStartTimeRef.current) / 1000
@@ -170,6 +179,8 @@ export default function AIGamePage() {
     restartGame();
     gameStartTimeRef.current = Date.now();
     gameRecordedRef.current = false;
+    gameOverDialogShownRef.current = false;
+    setIsGameEnding(false);
     toast({
       title: "New Game",
       description: "Starting fresh game against AI",
@@ -181,6 +192,7 @@ export default function AIGamePage() {
   };
 
   const confirmResign = () => {
+    setIsGameEnding(true);
     resignGame();
     dispatch(setShowResignDialog(false));
     toast({
@@ -318,11 +330,15 @@ export default function AIGamePage() {
 
             <OthelloBoard
               board={gameState.board}
-              validMoves={gameState.validMoves}
+              validMoves={
+                gameState.isGameOver || isAiThinking || isGameEnding
+                  ? []
+                  : gameState.validMoves
+              }
               lastMove={gameState.lastMove}
               currentPlayer={gameState.currentPlayer}
               onMove={handleMove}
-              disabled={gameState.isGameOver || isAiThinking}
+              disabled={gameState.isGameOver || isAiThinking || isGameEnding}
               isAiThinking={isAiThinking}
             />
           </div>
