@@ -12,7 +12,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://othello-game.online";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://othello-wine.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

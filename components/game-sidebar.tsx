@@ -113,22 +113,26 @@ export function GameSidebar({
                   : opponentName}
               </span>
             </div>
-            {currentPlayer === playerColor && playerColor === "black" && (
-              <Badge
-                variant="secondary"
-                className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
-              >
-                Your Turn
-              </Badge>
-            )}
-            {currentPlayer === "black" && playerColor === "white" && (
-              <Badge
-                variant="secondary"
-                className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
-              >
-                Their Turn
-              </Badge>
-            )}
+            {currentPlayer === playerColor &&
+              playerColor === "black" &&
+              gameStatus !== "finished" && (
+                <Badge
+                  variant="secondary"
+                  className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
+                >
+                  Your Turn
+                </Badge>
+              )}
+            {currentPlayer === "black" &&
+              playerColor === "white" &&
+              gameStatus !== "finished" && (
+                <Badge
+                  variant="secondary"
+                  className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
+                >
+                  Their Turn
+                </Badge>
+              )}
           </div>
 
           <div className="flex items-center justify-between">

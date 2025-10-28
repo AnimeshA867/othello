@@ -50,6 +50,7 @@ import {
   setShowDrawOfferDialog,
   setShowAuthPrompt,
   setLoading,
+  setShowAbandonDialog,
 } from "@/lib/redux/slices/uiSlice";
 import { TutorialDialog } from "@/components/tutorial-dialog";
 
@@ -97,6 +98,7 @@ export default function RankedGamePage() {
   const showGameOverDialog = useAppSelector(
     (state: any) => state.ui.showGameOverDialog
   );
+
   const showResignDialog = useAppSelector(
     (state: any) => state.ui.showResignDialog
   );
@@ -105,6 +107,10 @@ export default function RankedGamePage() {
   );
   const drawOfferedByPlayer = useAppSelector(
     (state: any) => state.game.drawOfferedByPlayer
+  );
+
+  const showAbandonDialog = useAppSelector(
+    (state: any) => state.ui.showAbandonDialog
   );
   const showAuthDialog = useAppSelector(
     (state: any) => state.ui.showAuthPrompt
@@ -983,7 +989,7 @@ export default function RankedGamePage() {
               track your ELO rating!
             </p>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-8">
             <Link href="/sign-in">
               <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                 Sign In
@@ -1029,12 +1035,22 @@ export default function RankedGamePage() {
           <div className="w-full max-w-3xl">
             <div className="mb-6 text-center">
               <div className="flex items-center justify-between mb-4">
-                <Link href="/">
-                  <Button variant="ghost" size="sm" className="text-white">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white"
+                  onClick={() => {
+                    if (canAbandon) {
+                      router.push("/");
+                    } else {
+                      dispatch(setShowAbandonDialog(true));
+                    }
+                  }}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+
                 <div className="flex gap-2">
                   {gameMode === "multiplayer" && mpGameState.roomId && (
                     <Button
@@ -1127,6 +1143,7 @@ export default function RankedGamePage() {
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
             onDraw={handleOfferDraw}
+            onRestart={handleRestart}
             playerElo={userElo}
             showAbandon={canAbandon}
           />
@@ -1313,6 +1330,39 @@ export default function RankedGamePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Abandon Warning Dialog */}
+      <Dialog
+        open={showAbandonDialog}
+        onOpenChange={(open) => dispatch(setShowAbandonDialog(open))}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure to abandon the match?</DialogTitle>
+            <DialogDescription>
+              Abandoning match leads to ELO penalty. Will be calculated as
+              resign.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => dispatch(setShowAbandonDialog(false))}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                confirmResign();
+                router.push("/");
+              }}
+              variant={"destructive"}
+            >
+              Go Back
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Guest Limit Dialog */}
       <Dialog
         open={showAuthDialog}
@@ -1342,7 +1392,9 @@ export default function RankedGamePage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => dispatch(setShowAuthPrompt(false))}
+              onClick={() => {
+                dispatch(setShowAuthPrompt(false));
+              }}
             >
               Continue as Guest
             </Button>

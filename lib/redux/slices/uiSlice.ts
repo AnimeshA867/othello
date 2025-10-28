@@ -7,6 +7,7 @@ export interface UIState {
   showDrawOfferDialog: boolean;
   showAuthPrompt: boolean;
   showSettingsDialog: boolean;
+  showAbandonDialog: boolean;
 
   // Loading states
   isLoading: boolean;
@@ -27,6 +28,7 @@ const initialState: UIState = {
   showGameOverDialog: false,
   showResignDialog: false,
   showDrawOfferDialog: false,
+  showAbandonDialog: false,
   showAuthPrompt: false,
   showSettingsDialog: false,
   isLoading: false,
@@ -47,6 +49,9 @@ const uiSlice = createSlice({
     },
     setShowDrawOfferDialog: (state, action: PayloadAction<boolean>) => {
       state.showDrawOfferDialog = action.payload;
+    },
+    setShowAbandonDialog: (state, action: PayloadAction<boolean>) => {
+      state.showAbandonDialog = action.payload;
     },
     setShowAuthPrompt: (state, action: PayloadAction<boolean>) => {
       state.showAuthPrompt = action.payload;
@@ -87,6 +92,7 @@ export const {
   setShowResignDialog,
   setShowDrawOfferDialog,
   setShowAuthPrompt,
+  setShowAbandonDialog,
   setShowSettingsDialog,
   setLoading,
   setError,
