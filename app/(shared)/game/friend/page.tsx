@@ -538,17 +538,28 @@ export default function FriendGamePage() {
             showAbandon={canAbandon}
           />
 
-          {/* Draw offer button */}
+          {/* Action Buttons */}
           {websocketState.isConnected &&
             !gameState.isWaitingForPlayer &&
             !gameState.isGameOver && (
-              <Button
-                variant="outline"
-                className="w-full mt-4 bg-transparent border-white/30 text-white hover:bg-white hover:text-black"
-                onClick={handleOfferDraw}
-              >
-                Offer Draw
-              </Button>
+              <div className="space-y-2 mt-4">
+                {/* <Button
+                  variant="outline"
+                  className="w-full bg-transparent border-white/30 text-white hover:bg-white hover:text-black"
+                  onClick={handleOfferDraw}
+                >
+                  Offer Draw
+                </Button> */}
+                {moveCount < 2 && (
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white"
+                    onClick={confirmResign}
+                  >
+                    Abort Match
+                  </Button>
+                )}
+              </div>
             )}
         </div>
       </div>
