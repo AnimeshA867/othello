@@ -1031,7 +1031,7 @@ export default function RankedGamePage() {
         }}
       ></div>
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] relative z-10">
-        <div className="flex-1 flex items-center justify-center p-4 md:p-8">
+        <div className="flex-1 flex items-start justify-center p-4 md:p-8">
           <div className="w-full max-w-3xl">
             <div className="mb-6 text-center">
               <div className="flex items-center justify-between mb-4">
