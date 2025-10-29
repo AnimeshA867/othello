@@ -4,13 +4,13 @@ const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://othello-game.online";
 
 export const metadata: Metadata = {
-  title: "Profile - Othello Game",
+  title: "Profile - Othello Master",
   description:
-    "View your Othello game profile, stats, achievements, and match history. Track your progress and improve your skills.",
+    "View your Othello Master profile, stats, achievements, and match history. Track your progress and improve your skills.",
   openGraph: {
-    title: "Profile - Othello Game",
+    title: "Profile - Othello Master",
     description:
-      "View your Othello game profile, stats, achievements, and match history. Track your progress and improve your skills.",
+      "View your Othello Master profile, stats, achievements, and match history. Track your progress and improve your skills.",
     url: `${siteUrl}/profile`,
     type: "website",
     images: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "Othello Game Profile",
+        alt: "Othello Master Profile",
       },
     ],
   },

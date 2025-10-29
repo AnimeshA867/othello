@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Othello Master
+
+Play Othello (Reversi) online for free! A classic black and white strategy board game with AI opponents, multiplayer modes, and ranked competitive matches.
 
 ## Getting Started
 

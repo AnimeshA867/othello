@@ -57,7 +57,7 @@ export default function HomePage() {
             </div>
             <div className="relative z-10">
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 md:mb-6 tracking-tight">
-                Play Othello Online
+                Othello Master - Play Online
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                 Master the classic black and white strategy board game. Also
@@ -149,7 +149,7 @@ export default function HomePage() {
         <section className="py-12 md:py-20 px-4 sm:px-6 lg:px-8 relative z-10 bg-secondary/30">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-foreground">
-              Why Play Othello Online?
+              Why Play at Othello Master?
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
@@ -195,11 +195,11 @@ export default function HomePage() {
         <section className="py-12 md:py-20 px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-4xl mx-auto prose prose-invert">
             <h2 className="text-3xl font-bold mb-6 text-foreground">
-              Play Othello (Reversi) Free Online
+              Play Othello (Reversi) Free Online at Othello Master
             </h2>
             <p className="text-muted-foreground text-lg mb-4">
-              Welcome to the ultimate online destination for Othello
-              enthusiasts! Whether you're a seasoned strategist or just
+              Welcome to Othello Master, the ultimate online destination for
+              Othello enthusiasts! Whether you're a seasoned strategist or just
               discovering this classic board game, our platform offers the
               perfect environment to play Othello online for free.
             </p>
@@ -227,7 +227,7 @@ export default function HomePage() {
             </p>
 
             <h3 className="text-2xl font-semibold mb-4 mt-8 text-foreground">
-              Features of Our Othello Game
+              Features of Othello Master
             </h3>
             <ul className="list-disc list-inside text-muted-foreground space-y-2 mb-6">
               <li>

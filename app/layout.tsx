@@ -19,11 +19,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default:
-      "Othello Online - Play Free Reversi | Classic Black and White Strategy Board Game",
-    template: "%s | Othello Online",
+      "Othello Master - Play Free Reversi | Classic Black and White Strategy Board Game",
+    template: "%s | Othello Master",
   },
   description:
-    "Play Othello (Reversi) online for free! The classic black and white strategy board game. Challenge AI opponents, play with friends, or compete in ranked matches. Master the timeless disc-flipping board game with intuitive 3D graphics and real-time multiplayer. Perfect for beginners and experts alike.",
+    "Play Othello (Reversi) online for free at Othello Master! The classic black and white strategy board game. Challenge AI opponents, play with friends, or compete in ranked matches. Master the timeless disc-flipping board game with intuitive 3D graphics and real-time multiplayer. Perfect for beginners and experts alike.",
   keywords: [
     // Core game names
     "othello",
@@ -97,26 +97,26 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteUrl,
     title:
-      "Othello Online - Free Black and White Strategy Board Game | Reversi",
+      "Othello Master - Free Black and White Strategy Board Game | Reversi",
     description:
-      "Play the classic Othello (Reversi) board game online for free! Strategic black and white disc-flipping game. Challenge AI, play with friends, or compete in ranked matches. No download required - play instantly in your browser!",
-    siteName: "Othello Online",
+      "Play the classic Othello (Reversi) board game online for free at Othello Master! Strategic black and white disc-flipping game. Challenge AI, play with friends, or compete in ranked matches. No download required - play instantly in your browser!",
+    siteName: "Othello Master",
     images: [
       {
         url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "Othello Online - Classic Black and White Strategy Board Game",
+        alt: "Othello Master - Classic Black and White Strategy Board Game",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Othello Online - Free Black and White Strategy Board Game",
+    title: "Othello Master - Free Black and White Strategy Board Game",
     description:
-      "Play Othello (Reversi) online for free! The classic black and white disc-flipping strategy game. Challenge AI or compete with players worldwide.",
+      "Play Othello (Reversi) online for free at Othello Master! The classic black and white disc-flipping strategy game. Challenge AI or compete with players worldwide.",
     images: [`${siteUrl}/og-image.png`],
-    creator: "@othelloonline",
+    creator: "@othellomaster",
   },
   robots: {
     index: true,
@@ -155,11 +155,11 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    name: "Othello Online",
+    name: "Othello Master",
     alternateName: ["Reversi Online", "Othello Game", "Reversi Game"],
     url: siteUrl,
     description:
-      "Play Othello (Reversi) online for free! The classic black and white strategy board game. Challenge AI opponents, play with friends, or compete in ranked matches.",
+      "Play Othello (Reversi) online for free at Othello Master! The classic black and white strategy board game. Challenge AI opponents, play with friends, or compete in ranked matches.",
     applicationCategory: "Game",
     gameType: "Strategy",
     genre: "Board Game",
@@ -187,7 +187,7 @@ export default function RootLayout({
     },
     author: {
       "@type": "Organization",
-      name: "Othello Online",
+      name: "Othello Master",
     },
   };
 
