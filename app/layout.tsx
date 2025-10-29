@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { GoogleAnalytics, MicrosoftClarity } from "@/components/analytics";
 import { AuthProvider } from "@/components/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
+import Footer from "@/components/Footer";
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://othello-wine.vercel.app";
@@ -216,6 +217,7 @@ export default function RootLayout({
                   <GoogleAnalytics />
                   <MicrosoftClarity />
                   {children}
+                  <Footer />
                   <Toaster />
                 </AuthProvider>
               </ThemeProvider>

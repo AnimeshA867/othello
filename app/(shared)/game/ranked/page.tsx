@@ -989,7 +989,7 @@ export default function RankedGamePage() {
               track your ELO rating!
             </p>
           </div>
-          <div className="space-y-8">
+          <div className="flex gap-4 flex-col">
             <Link href="/sign-in">
               <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                 Sign In
