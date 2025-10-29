@@ -14,6 +14,21 @@ export const metadata: Metadata = {
       "Play Othello (Reversi) online. Choose from AI opponents, multiplayer with friends, or ranked competitive matches.",
     url: `${siteUrl}/game`,
     type: "website",
+    images: [
+      {
+        url: `${siteUrl}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "Othello Game Online",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Play Othello Game Online",
+    description:
+      "Play Othello (Reversi) online. Choose from AI opponents, multiplayer with friends, or ranked competitive matches.",
+    images: [`${siteUrl}/og-image.png`],
   },
   alternates: {
     canonical: `${siteUrl}/game`,

@@ -16,6 +16,9 @@ import { ChevronDown, Target, RotateCcw, Users, Trophy } from "lucide-react";
 import Link from "next/link";
 import { Metadata } from "next";
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://othello-game.online";
+
 export const metadata: Metadata = {
   title: "How to Play Othello (Reversi) - Rules, Strategies & Tips",
   description:
@@ -39,6 +42,26 @@ export const metadata: Metadata = {
     title: "How to Play Othello (Reversi) - Complete Guide",
     description:
       "Master the classic black and white strategy board game with our comprehensive guide. Learn rules, strategies, and winning tactics.",
+    url: `${siteUrl}/how-to-play`,
+    type: "website",
+    images: [
+      {
+        url: `${siteUrl}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "How to Play Othello - Complete Guide",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "How to Play Othello (Reversi) - Complete Guide",
+    description:
+      "Master the classic black and white strategy board game with our comprehensive guide. Learn rules, strategies, and winning tactics.",
+    images: [`${siteUrl}/og-image.png`],
+  },
+  alternates: {
+    canonical: `${siteUrl}/how-to-play`,
   },
 };
 
