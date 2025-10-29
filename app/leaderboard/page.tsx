@@ -26,6 +26,7 @@ interface LeaderboardPlayer {
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -33,13 +34,19 @@ export default function LeaderboardPage() {
 
   const fetchLeaderboard = async () => {
     try {
+      setError(null);
       const response = await fetch("/api/leaderboard");
       if (response.ok) {
         const data = await response.json();
+        console.log("Leaderboard data:", data); // Debug log
         setLeaderboard(data);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to load leaderboard");
       }
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
+      setError("Failed to connect to server");
     } finally {
       setLoading(false);
     }
@@ -82,6 +89,17 @@ export default function LeaderboardPage() {
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading leaderboard...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <div className="text-red-500 mb-4">⚠️</div>
+                <p className="text-muted-foreground text-lg mb-4">{error}</p>
+                <button
+                  onClick={fetchLeaderboard}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                >
+                  Try Again
+                </button>
               </div>
             ) : leaderboard.length === 0 ? (
               <div className="text-center py-12">

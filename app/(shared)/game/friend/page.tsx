@@ -172,9 +172,6 @@ export default function FriendGamePage() {
     gameState.blackScore,
     gameState.whiteScore,
     websocketState.playerRole,
-    user,
-    dispatch,
-    toast,
   ]);
 
   // Show draw offer dialog when a draw is offered
@@ -196,13 +193,7 @@ export default function FriendGamePage() {
       // Close dialog when draw offer is resolved (accepted/declined/cancelled)
       dispatch(setShowDrawOfferDialog(false));
     }
-  }, [
-    gameState.drawOfferedBy,
-    websocketState.playerRole,
-    showDrawOfferDialog,
-    toast,
-    dispatch,
-  ]);
+  }, [gameState.drawOfferedBy, websocketState.playerRole, showDrawOfferDialog]);
 
   // Show toast notification when room is created (only for creator)
   useEffect(() => {
@@ -224,7 +215,6 @@ export default function FriendGamePage() {
     gameState.roomId,
     hasCreatedRoom,
     isRoomCreator,
-    toast,
   ]);
 
   // Handle room creation

@@ -87,7 +87,7 @@ export function TutorialDialog({
   onSkip,
 }: TutorialDialogProps) {
   const [currentStep, setCurrentStep] = useState(0);
-
+  const [state, setState] = useState(open);
   const handleNext = () => {
     if (currentStep < tutorialSteps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -110,7 +110,12 @@ export function TutorialDialog({
   const progress = ((currentStep + 1) / tutorialSteps.length) * 100;
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog
+      open={state}
+      onOpenChange={() => {
+        setState(false);
+      }}
+    >
       <DialogContent className="sm:max-w-[600px] bg-gradient-to-br from-gray-900 via-gray-800 to-black border-gray-700">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -118,14 +123,6 @@ export function TutorialDialog({
               {step.icon}
               {step.title}
             </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSkip}
-              className="text-gray-400 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
           <div className="flex items-center gap-2 mt-2">
             <Badge variant="outline" className="bg-blue-500/20 text-blue-300">

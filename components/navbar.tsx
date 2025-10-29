@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LogOut, Trophy, Settings } from "lucide-react";
 import { Suspense } from "react";
+import Image from "next/image";
 
 function NavbarContent() {
   const pathname = usePathname();
@@ -23,14 +24,22 @@ function NavbarContent() {
   return (
     <nav className="bg-black text-white shadow-lg border-b border-gray-800 relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link
               href="/"
-              className="text-2xl font-bold tracking-tight text-white hover:text-gray-300 transition-colors duration-300"
+              className="flex items-center gap-3 group transition-all duration-300"
             >
-              Othello Master
+              <div className="relative w-36 h-full flex-shrink-0">
+                <Image
+                  src="/Othello Master.svg"
+                  alt="Othello Master"
+                  height={480}
+                  width={480}
+                  className="object-contain"
+                />
+              </div>
             </Link>
           </div>
 
@@ -159,9 +168,15 @@ export function Navbar() {
       fallback={
         <nav className="bg-black text-white shadow-lg border-b border-gray-800 relative z-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex items-center justify-between h-20">
               <div className="flex-shrink-0">
-                <span className="text-2xl font-bold">Othello Master</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-800 rounded-lg animate-pulse" />
+                </div>
+              </div>
+              <div className="space-x-4 flex items-center">
+                <div className="w-20 h-8 bg-gray-800 rounded-md inline-block animate-pulse" />
+                <div className="w-20 h-8 bg-gray-800 rounded-md inline-block animate-pulse" />
               </div>
             </div>
           </div>

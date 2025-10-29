@@ -27,6 +27,19 @@ export function useUserSync() {
       }
 
       if (user) {
+        // Initialize user in database (creates if doesn't exist)
+        try {
+          const initResponse = await fetch("/api/users/init", {
+            method: "POST",
+          });
+
+          if (!initResponse.ok) {
+            console.error("Failed to initialize user in database");
+          }
+        } catch (error) {
+          console.error("Error initializing user:", error);
+        }
+
         // Set user basic info
         dispatch(
           setUser({
@@ -47,8 +60,8 @@ export function useUserSync() {
           const response = await fetch("/api/profile");
           if (response.ok) {
             const data = await response.json();
-            if (data.gameStats) {
-              dispatch(setGameStats(data.gameStats));
+            if (data.stats) {
+              dispatch(setGameStats(data.stats));
             }
           }
         } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@stackframe/stack";
+import { UserAvatar, useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/navbar";
@@ -26,38 +26,22 @@ import {
   Save,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAppSelector } from "@/lib/redux/hooks";
-
-interface UserProfile {
-  username: string;
-  displayName: string;
-  bio: string;
-  country: string;
-  stats: {
-    totalGames: number;
-    wins: number;
-    losses: number;
-    draws: number;
-    eloRating: number;
-    rank: string;
-    winRate: number;
-    currentWinStreak: number;
-    longestWinStreak: number;
-  };
-}
+import { useAppSelector, useAppDispatch } from "@/lib/redux/hooks";
+import { setGameStats } from "@/lib/redux/slices/userSlice";
+import Image from "next/image";
 
 export default function ProfilePage() {
   const user = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
 
   // Read user data from Redux
-  const reduxUser = useAppSelector((state: any) => state.user);
-  const gameStats = useAppSelector((state: any) => state.user.gameStats);
+  const reduxUser = useAppSelector((state) => state.user);
+  const gameStats = useAppSelector((state) => state.user.gameStats);
 
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [formData, setFormData] = useState({
     displayName: "",
     bio: "",
@@ -70,7 +54,7 @@ export default function ProfilePage() {
       return;
     }
 
-    // Fetch user profile from API
+    // Fetch profile data to populate form
     fetchProfile();
   }, [user, router]);
 
@@ -79,12 +63,16 @@ export default function ProfilePage() {
       const response = await fetch("/api/profile");
       if (response.ok) {
         const data = await response.json();
-        setProfile(data);
         setFormData({
           displayName: data.displayName || "",
           bio: data.bio || "",
           country: data.country || "",
         });
+
+        // Update Redux with fresh stats
+        if (data.stats) {
+          dispatch(setGameStats(data.stats));
+        }
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -132,13 +120,29 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user || !profile) {
-    return null;
+  if (!user || !reduxUser.username || !gameStats) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <h1 className="text-4xl font-bold mb-2">Something's Wrong</h1>
+        <p className="text-muted-foreground mb-6">
+          Unable to load your profile. Please try signing in again.
+        </p>
+        <div className="flex gap-4">
+          <Button onClick={() => router.push("/auth/signin")}>
+            Go to Sign In
+          </Button>
+          <Button variant="outline" onClick={() => router.refresh()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
   }
 
+  // Calculate win rate from Redux stats
   const winRate =
-    profile.stats.totalGames > 0
-      ? Math.round((profile.stats.wins / profile.stats.totalGames) * 100)
+    gameStats?.totalGames > 0
+      ? Math.round((gameStats.wins / gameStats.totalGames) * 100)
       : 0;
 
   return (
@@ -151,22 +155,28 @@ export default function ProfilePage() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <UserIcon className="w-10 h-10 text-primary" />
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center relative rounded-full overflow-hidden">
+                  <Image
+                    src={reduxUser.avatarUrl || "/default-avatar.png"}
+                    alt={reduxUser.username}
+                    height={100}
+                    width={100}
+                    className="object-cover"
+                  />
                 </div>
                 <div>
                   <CardTitle className="text-3xl">
-                    {profile.displayName || user.displayName}
+                    {reduxUser.displayName || user.displayName}
                   </CardTitle>
                   <CardDescription className="text-lg">
-                    @{profile.username}
+                    @{reduxUser.username}
                   </CardDescription>
                   <div className="mt-2">
                     <Badge variant="secondary" className="text-sm">
-                      {profile.stats.rank}
+                      {gameStats.rank}
                     </Badge>
                     <Badge variant="outline" className="ml-2">
-                      ELO: {profile.stats.eloRating}
+                      ELO: {gameStats.eloRating}
                     </Badge>
                   </div>
                 </div>
@@ -200,7 +210,7 @@ export default function ProfilePage() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <Target className="w-5 h-5 text-muted-foreground" />
-                <p className="text-3xl font-bold">{profile.stats.totalGames}</p>
+                <p className="text-3xl font-bold">{gameStats.totalGames}</p>
               </div>
             </CardContent>
           </Card>
@@ -215,8 +225,7 @@ export default function ProfilePage() {
                 <p className="text-3xl font-bold">{winRate}%</p>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {profile.stats.wins}W - {profile.stats.losses}L -{" "}
-                {profile.stats.draws}D
+                {gameStats.wins}W - {gameStats.losses}L - {gameStats.draws}D
               </p>
             </CardContent>
           </Card>
@@ -229,7 +238,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-orange-500" />
                 <p className="text-3xl font-bold">
-                  {profile.stats.currentWinStreak}
+                  {gameStats.currentWinStreak}
                 </p>
               </div>
             </CardContent>
@@ -243,7 +252,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-green-500" />
                 <p className="text-3xl font-bold">
-                  {profile.stats.longestWinStreak}
+                  {gameStats.longestWinStreak}
                 </p>
               </div>
             </CardContent>
@@ -311,12 +320,12 @@ export default function ProfilePage() {
                   <>
                     <div>
                       <p className="text-sm text-muted-foreground">Bio</p>
-                      <p className="mt-1">{profile.bio || "No bio yet"}</p>
+                      <p className="mt-1">{reduxUser.bio || "No bio yet"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Country</p>
                       <p className="mt-1">
-                        {profile.country || "Not specified"}
+                        {formData.country || "Not specified"}
                       </p>
                     </div>
                     <div>
@@ -343,29 +352,29 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="font-medium">Total Games</span>
-                    <span>{profile.stats.totalGames}</span>
+                    <span>{gameStats.totalGames}</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="font-medium">Wins</span>
                     <span className="text-green-600 font-bold">
-                      {profile.stats.wins}
+                      {gameStats.wins}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="font-medium">Losses</span>
                     <span className="text-red-600 font-bold">
-                      {profile.stats.losses}
+                      {gameStats.losses}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="font-medium">Draws</span>
                     <span className="text-yellow-600 font-bold">
-                      {profile.stats.draws}
+                      {gameStats.draws}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="font-medium">ELO Rating</span>
-                    <span className="font-bold">{profile.stats.eloRating}</span>
+                    <span className="font-bold">{gameStats.eloRating}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="font-medium">Win Rate</span>
