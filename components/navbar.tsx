@@ -16,6 +16,7 @@ import {
 import { User, LogOut, Trophy, Settings } from "lucide-react";
 import { Suspense } from "react";
 import Image from "next/image";
+import { FriendSearch } from "@/components/friend-search";
 
 function NavbarContent() {
   const pathname = usePathname();
@@ -33,14 +34,19 @@ function NavbarContent() {
             >
               <div className="relative w-36 h-full flex-shrink-0">
                 <Image
-                  src="/Othello Master.svg"
-                  alt="Othello Master"
+                  src="/Overturn.svg"
+                  alt="Overturn"
                   height={480}
                   width={480}
                   className="object-contain"
                 />
               </div>
             </Link>
+          </div>
+
+          {/* Friend Search */}
+          <div className="hidden md:block flex-1 max-w-md mx-8">
+            <FriendSearch />
           </div>
 
           {/* Navigation Links */}
@@ -162,7 +168,7 @@ function NavbarContent() {
   );
 }
 
-export function Navbar() {
+export default function Navbar() {
   return (
     <Suspense
       fallback={

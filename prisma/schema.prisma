@@ -23,13 +23,15 @@ model User {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  profile      UserProfile?
-  gameStats    GameStats?
-  blackMatches RankedMatch[]     @relation("BlackPlayer")
-  whiteMatches RankedMatch[]     @relation("WhitePlayer")
-  achievements UserAchievement[]
-  friends      Friendship[]      @relation("UserFriends")
-  friendOf     Friendship[]      @relation("FriendOfUser")
+  profile          UserProfile?
+  gameStats        GameStats?
+  blackMatches     RankedMatch[]     @relation("BlackPlayer")
+  whiteMatches     RankedMatch[]     @relation("WhitePlayer")
+  achievements     UserAchievement[]
+  friends          Friendship[]      @relation("UserFriends")
+  friendOf         Friendship[]      @relation("FriendOfUser")
+  sentRequests     FriendRequest[]   @relation("SentRequests")
+  receivedRequests FriendRequest[]   @relation("ReceivedRequests")
 
   @@index([stackId])
   @@index([email])
@@ -175,6 +177,23 @@ model Friendship {
   @@unique([userId, friendId])
   @@index([userId])
   @@index([friendId])
+  @@index([status])
+}
+
+// Friend Requests
+model FriendRequest {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  sender     User     @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  status     String   @default("pending") // "pending", "accepted", "declined"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
   @@index([status])
 }
 

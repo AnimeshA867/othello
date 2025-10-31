@@ -34,6 +34,12 @@ interface UnifiedMultiplayerGameState extends GameState {
   gameMode: any;
   drawOfferedBy?: "black" | "white" | null;
   rematchOfferedBy?: "black" | "white" | null;
+  chatMessages?: Array<{
+    message: string;
+    sender: Player;
+    senderName: string;
+    timestamp: number;
+  }>;
 }
 
 export function useUnifiedMultiplayerGame() {
@@ -52,7 +58,7 @@ export function useUnifiedMultiplayerGame() {
     offerRematch: sendRematchOffer,
     acceptRematch: sendAcceptRematch,
     declineRematch: sendDeclineRematch,
-
+    sendChatMessage: sendChatMsg,
     disconnect,
     onMessage,
   } = useWebSocketGame();
@@ -77,6 +83,7 @@ export function useUnifiedMultiplayerGame() {
     undosRemaining: 0,
     drawOfferedBy: null,
     rematchOfferedBy: null,
+    chatMessages: [],
   });
   // Register message handlers
   useEffect(() => {
@@ -243,6 +250,21 @@ export function useUnifiedMultiplayerGame() {
           }));
           break;
 
+        case "chat_message":
+          setGameState((prev) => ({
+            ...prev,
+            chatMessages: [
+              ...(prev.chatMessages || []),
+              {
+                message: message.message,
+                sender: message.sender,
+                senderName: message.senderName,
+                timestamp: message.timestamp,
+              },
+            ],
+          }));
+          break;
+
         case "player_disconnected":
           setGameState((prev) => {
             const newState: MultiplayerGameState = {
@@ -374,6 +396,13 @@ export function useUnifiedMultiplayerGame() {
     sendDeclineRematch();
   }, [sendDeclineRematch]);
 
+  const sendChatMessage = useCallback(
+    (message: string, senderName?: string) => {
+      sendChatMsg(message, senderName);
+    },
+    [sendChatMsg]
+  );
+
   const leaveRoom = useCallback(() => {
     disconnect();
     setGameState({
@@ -396,6 +425,7 @@ export function useUnifiedMultiplayerGame() {
       undosRemaining: 0,
       drawOfferedBy: null,
       rematchOfferedBy: null,
+      chatMessages: [],
     });
   }, [disconnect]);
 
@@ -432,6 +462,7 @@ export function useUnifiedMultiplayerGame() {
     offerRematch,
     acceptRematch,
     declineRematch,
+    sendChatMessage,
     leaveRoom,
     joinRandomGame,
     isConnected: websocketState.isConnected,

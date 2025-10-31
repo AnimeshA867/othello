@@ -4,13 +4,13 @@ const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://othello-game.online";
 
 export const metadata: Metadata = {
-  title: "Settings - Othello Master",
+  title: "Settings - Overturn",
   description:
-    "Manage your Othello Master account settings, preferences, and privacy options.",
+    "Manage your Overturn account settings, preferences, and privacy options.",
   openGraph: {
-    title: "Settings - Othello Master",
+    title: "Settings - Overturn",
     description:
-      "Manage your Othello Master account settings, preferences, and privacy options.",
+      "Manage your Overturn account settings, preferences, and privacy options.",
     url: `${siteUrl}/settings`,
     type: "website",
     images: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "Othello Master Settings",
+        alt: "Overturn Settings",
       },
     ],
   },

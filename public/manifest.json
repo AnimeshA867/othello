@@ -1,6 +1,6 @@
 {
-  "name": "Othello Master - Classic Strategy Board Game",
-  "short_name": "Othello",
+  "name": "Overturn - Classic Strategy Board Game",
+  "short_name": "Overturn",
   "description": "Play Othello (Reversi) online for free! Challenge AI, play with friends, or compete in ranked matches.",
   "start_url": "/",
   "display": "standalone",

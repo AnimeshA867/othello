@@ -6,11 +6,11 @@ const siteUrl =
 export const metadata: Metadata = {
   title: "Leaderboard - Top Othello Players",
   description:
-    "View the top Othello players at Othello Master ranked by ELO rating. See win rates, total games played, and compete to climb the global leaderboard.",
+    "View the top Othello players at Overturn ranked by ELO rating. See win rates, total games played, and compete to climb the global leaderboard.",
   openGraph: {
     title: "Leaderboard - Top Othello Players",
     description:
-      "View the top Othello players at Othello Master ranked by ELO rating. See win rates, total games played, and compete to climb the global leaderboard.",
+      "View the top Othello players at Overturn ranked by ELO rating. See win rates, total games played, and compete to climb the global leaderboard.",
     url: `${siteUrl}/leaderboard`,
     type: "website",
     images: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
         url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "Othello Master Leaderboard - Top Players",
+        alt: "Overturn Leaderboard - Top Players",
       },
     ],
   },

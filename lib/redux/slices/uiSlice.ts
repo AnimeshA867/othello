@@ -5,6 +5,7 @@ export interface UIState {
   showGameOverDialog: boolean;
   showResignDialog: boolean;
   showDrawOfferDialog: boolean;
+  showRematchOfferDialog: boolean;
   showAuthPrompt: boolean;
   showSettingsDialog: boolean;
   showAbandonDialog: boolean;
@@ -28,6 +29,7 @@ const initialState: UIState = {
   showGameOverDialog: false,
   showResignDialog: false,
   showDrawOfferDialog: false,
+  showRematchOfferDialog: false,
   showAbandonDialog: false,
   showAuthPrompt: false,
   showSettingsDialog: false,
@@ -49,6 +51,9 @@ const uiSlice = createSlice({
     },
     setShowDrawOfferDialog: (state, action: PayloadAction<boolean>) => {
       state.showDrawOfferDialog = action.payload;
+    },
+    setShowRematchOfferDialog: (state, action: PayloadAction<boolean>) => {
+      state.showRematchOfferDialog = action.payload;
     },
     setShowAbandonDialog: (state, action: PayloadAction<boolean>) => {
       state.showAbandonDialog = action.payload;
@@ -91,6 +96,7 @@ export const {
   setShowGameOverDialog,
   setShowResignDialog,
   setShowDrawOfferDialog,
+  setShowRematchOfferDialog,
   setShowAuthPrompt,
   setShowAbandonDialog,
   setShowSettingsDialog,

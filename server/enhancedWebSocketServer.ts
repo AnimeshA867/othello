@@ -125,6 +125,9 @@ class EnhancedOthelloWebSocketServer {
       case "decline_rematch":
         this.declineRematch(ws);
         break;
+      case "send_chat_message":
+        this.handleChatMessage(ws, message.message, message.senderName);
+        break;
 
       // New handlers for ranked matchmaking
       case "join_random":
@@ -656,6 +659,35 @@ class EnhancedOthelloWebSocketServer {
     this.broadcastToRoom(roomId, {
       type: "rematch_declined",
       player: player.color,
+    });
+  }
+
+  private handleChatMessage(
+    ws: WebSocket,
+    message: string,
+    senderName?: string
+  ) {
+    const playerId = (ws as any).playerId;
+    const room = getRoomByPlayerId(playerId);
+
+    if (!room) {
+      this.sendError(ws, "Room not found");
+      return;
+    }
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) {
+      this.sendError(ws, "Player not found in room");
+      return;
+    }
+
+    // Broadcast the chat message to all players in the room
+    this.broadcastToRoom(room.roomId, {
+      type: "chat_message",
+      message: message,
+      sender: player.color,
+      senderName: senderName || player.name || "Anonymous",
+      timestamp: Date.now(),
     });
   }
 

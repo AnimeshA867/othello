@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OthelloBoard } from "@/components/othello-board";
 import { GameSidebar } from "@/components/game-sidebar";
+import { ChatBox } from "@/components/chat-box";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ import {
   setShowGameOverDialog,
   setShowResignDialog,
   setShowDrawOfferDialog,
+  setShowRematchOfferDialog,
   setShowAuthPrompt,
   setLoading,
   setShowAbandonDialog,
@@ -105,6 +107,9 @@ export default function RankedGamePage() {
   const showDrawOfferDialog = useAppSelector(
     (state: any) => state.ui.showDrawOfferDialog
   );
+  const showRematchOfferDialog = useAppSelector(
+    (state: any) => state.ui.showRematchOfferDialog
+  );
   const drawOfferedByPlayer = useAppSelector(
     (state: any) => state.game.drawOfferedByPlayer
   );
@@ -150,6 +155,10 @@ export default function RankedGamePage() {
     offerDraw: mpOfferDraw,
     acceptDraw: mpAcceptDraw,
     declineDraw: mpDeclineDraw,
+    offerRematch: mpOfferRematch,
+    acceptRematch: mpAcceptRematch,
+    declineRematch: mpDeclineRematch,
+    sendChatMessage: mpSendChatMessage,
   } = useUnifiedMultiplayerGame();
 
   // AI hook
@@ -590,6 +599,29 @@ export default function RankedGamePage() {
     dispatch,
   ]);
 
+  // Show rematch offer dialog for multiplayer
+  useEffect(() => {
+    if (
+      gameMode === "multiplayer" &&
+      mpGameState.rematchOfferedBy &&
+      mpGameState.rematchOfferedBy !== websocketState.playerRole
+    ) {
+      dispatch(setShowRematchOfferDialog(true));
+      toast({
+        title: "Rematch Offer",
+        description: "Your opponent wants to play again. Accept or decline?",
+      });
+    } else if (gameMode === "multiplayer") {
+      dispatch(setShowRematchOfferDialog(false));
+    }
+  }, [
+    gameMode,
+    mpGameState.rematchOfferedBy,
+    websocketState.playerRole,
+    toast,
+    dispatch,
+  ]);
+
   // Bot draw offer for AI mode
   useEffect(() => {
     if (
@@ -646,19 +678,26 @@ export default function RankedGamePage() {
 
   const handleRestart = () => {
     if (gameMode === "multiplayer") {
-      mpRestartGame();
+      // In multiplayer, offer a rematch instead of immediately restarting
+      mpOfferRematch();
+      dispatch(setShowGameOverDialog(false));
+      toast({
+        title: "Rematch Offered",
+        description: "Waiting for opponent to accept...",
+      });
     } else {
+      // In AI mode, restart immediately
       aiRestartGame();
+      dispatch(setShowGameOverDialog(false));
+      dispatch(resetGame());
+      setHasStartedMatchmaking(false);
+      setIsGameEnding(false);
+      gameOverDialogShownRef.current = false;
+      toast({
+        title: "Finding New Match",
+        description: "Searching for a new opponent...",
+      });
     }
-    dispatch(setShowGameOverDialog(false));
-    dispatch(resetGame());
-    setHasStartedMatchmaking(false);
-    setIsGameEnding(false);
-    gameOverDialogShownRef.current = false;
-    toast({
-      title: "Finding New Match",
-      description: "Searching for a new opponent...",
-    });
   };
 
   const handleResign = () => {
@@ -920,6 +959,34 @@ export default function RankedGamePage() {
     });
   };
 
+  const handleAcceptRematch = () => {
+    if (gameMode === "multiplayer") {
+      mpAcceptRematch();
+      dispatch(setShowRematchOfferDialog(false));
+      dispatch(setShowGameOverDialog(false));
+      dispatch(resetGame());
+      setHasStartedMatchmaking(false);
+      setIsGameEnding(false);
+      gameRecordedRef.current = false;
+      gameOverDialogShownRef.current = false;
+      toast({
+        title: "Rematch Accepted",
+        description: "Starting a new game!",
+      });
+    }
+  };
+
+  const handleDeclineRematch = () => {
+    if (gameMode === "multiplayer") {
+      mpDeclineRematch();
+    }
+    dispatch(setShowRematchOfferDialog(false));
+    toast({
+      title: "Rematch Declined",
+      description: "You declined the rematch offer",
+    });
+  };
+
   const handleCopyRoomId = () => {
     if (mpGameState.roomId) {
       navigator.clipboard.writeText(mpGameState.roomId);
@@ -937,6 +1004,14 @@ export default function RankedGamePage() {
       return mpGameState.opponentName || "Opponent";
     }
     return botName;
+  };
+
+  const handleSendChatMessage = (message: string) => {
+    if (gameMode === "multiplayer") {
+      const playerName =
+        user?.displayName || user?.primaryEmail?.split("@")[0] || "You";
+      mpSendChatMessage(message, playerName);
+    }
   };
 
   if (isLoading) {
@@ -1298,6 +1373,27 @@ export default function RankedGamePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Rematch Offer Dialog */}
+      <Dialog
+        open={showRematchOfferDialog}
+        onOpenChange={(open) => dispatch(setShowRematchOfferDialog(open))}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rematch Offered</DialogTitle>
+            <DialogDescription>
+              {getOpponentName()} wants to play again. Do you accept?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-between mt-4">
+            <Button variant="outline" onClick={handleDeclineRematch}>
+              Decline
+            </Button>
+            <Button onClick={handleAcceptRematch}>Accept Rematch</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Resign Dialog */}
       <Dialog
         open={showResignDialog}
@@ -1411,6 +1507,29 @@ export default function RankedGamePage() {
         onComplete={handleTutorialComplete}
         onSkip={handleTutorialSkip}
       />
+
+      {/* Chat Box - Only show during multiplayer games */}
+      {gameMode === "multiplayer" &&
+        websocketState.isConnected &&
+        !mpGameState.isWaitingForPlayer && (
+          <ChatBox
+            messages={
+              mpGameState.chatMessages
+                ?.filter(
+                  (msg): msg is typeof msg & { sender: "black" | "white" } =>
+                    msg.sender === "black" || msg.sender === "white"
+                )
+                .map((msg) => ({
+                  ...msg,
+                  isLocal: msg.sender === websocketState.playerRole,
+                })) || []
+            }
+            onSendMessage={handleSendChatMessage}
+            playerColor={
+              (websocketState.playerRole as "black" | "white") || "black"
+            }
+          />
+        )}
     </div>
   );
 }

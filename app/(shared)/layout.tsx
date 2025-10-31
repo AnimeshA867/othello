@@ -7,11 +7,11 @@ const siteUrl =
 export const metadata: Metadata = {
   title: "Play Othello Game Online",
   description:
-    "Play Othello (Reversi) online at Othello Master. Choose from AI opponents, multiplayer with friends, or ranked competitive matches.",
+    "Play Othello (Reversi) online at Overturn. Choose from AI opponents, multiplayer with friends, or ranked competitive matches.",
   openGraph: {
     title: "Play Othello Game Online",
     description:
-      "Play Othello (Reversi) online at Othello Master. Choose from AI opponents, multiplayer with friends, or ranked competitive matches.",
+      "Play Othello (Reversi) online at Overturn. Choose from AI opponents, multiplayer with friends, or ranked competitive matches.",
     url: `${siteUrl}/game`,
     type: "website",
     images: [
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
         url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "Othello Master - Play Online",
+        alt: "Overturn - Play Online",
       },
     ],
   },

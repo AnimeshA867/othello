@@ -1,4 +1,4 @@
-# Othello Master
+# Overturn
 
 Play Othello (Reversi) online for free! A classic black and white strategy board game with AI opponents, multiplayer modes, and ranked competitive matches.
 

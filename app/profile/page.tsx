@@ -3,7 +3,7 @@
 import { UserAvatar, useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Navbar } from "@/components/navbar";
+import Navbar from "@/components/navbar";
 import {
   Card,
   CardContent,

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OthelloBoard } from "@/components/othello-board";
 import { GameSidebar } from "@/components/game-sidebar";
+import { ChatBox } from "@/components/chat-box";
 import { useUnifiedMultiplayerGame } from "@/hooks/use-unified-multiplayer-game";
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   setShowGameOverDialog,
   setShowResignDialog,
   setShowDrawOfferDialog,
+  setShowRematchOfferDialog,
 } from "@/lib/redux/slices/uiSlice";
 import { incrementGameStats } from "@/lib/redux/slices/userSlice";
 import { setGameType } from "@/lib/redux/slices/gameSlice";
@@ -40,6 +42,10 @@ export default function FriendGamePage() {
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
+    sendChatMessage,
   } = useUnifiedMultiplayerGame();
 
   const { toast } = useToast();
@@ -52,6 +58,9 @@ export default function FriendGamePage() {
   );
   const showDrawOfferDialog = useAppSelector(
     (state: any) => state.ui.showDrawOfferDialog
+  );
+  const showRematchOfferDialog = useAppSelector(
+    (state: any) => state.ui.showRematchOfferDialog
   );
   const showResignDialog = useAppSelector(
     (state: any) => state.ui.showResignDialog
@@ -195,6 +204,31 @@ export default function FriendGamePage() {
     }
   }, [gameState.drawOfferedBy, websocketState.playerRole, showDrawOfferDialog]);
 
+  // Show rematch offer dialog when a rematch is offered
+  useEffect(() => {
+    if (
+      gameState.rematchOfferedBy &&
+      gameState.rematchOfferedBy !== websocketState.playerRole &&
+      !showRematchOfferDialog
+    ) {
+      dispatch(setShowRematchOfferDialog(true));
+
+      // Show toast notification
+      toast({
+        title: "Rematch Offer",
+        description: "Your opponent wants to play again. Accept or decline?",
+        variant: "default",
+      });
+    } else if (!gameState.rematchOfferedBy && showRematchOfferDialog) {
+      // Close dialog when rematch offer is resolved (accepted/declined/cancelled)
+      dispatch(setShowRematchOfferDialog(false));
+    }
+  }, [
+    gameState.rematchOfferedBy,
+    websocketState.playerRole,
+    showRematchOfferDialog,
+  ]);
+
   // Show toast notification when room is created (only for creator)
   useEffect(() => {
     if (
@@ -281,19 +315,15 @@ export default function FriendGamePage() {
     [makeMove]
   );
 
-  // Handle game restart
+  // Handle game restart - offer rematch instead of immediately restarting
   const handleRestart = useCallback(() => {
-    restartGame();
-    gameStartTimeRef.current = Date.now();
-    gameRecordedRef.current = false;
-    gameOverDialogShownRef.current = false;
-    setIsGameEnding(false); // Reset game ending state
+    offerRematch();
     dispatch(setShowGameOverDialog(false));
     toast({
-      title: "Game Restarted",
-      description: "Starting a new game",
+      title: "Rematch Offered",
+      description: "Waiting for opponent to accept...",
     });
-  }, [restartGame, dispatch, toast]);
+  }, [offerRematch, dispatch, toast]);
 
   // Handle resign
   const handleResign = useCallback(() => {
@@ -379,6 +409,29 @@ export default function FriendGamePage() {
     });
   }, [declineDraw]);
 
+  const handleAcceptRematch = useCallback(() => {
+    acceptRematch();
+    dispatch(setShowRematchOfferDialog(false));
+    dispatch(setShowGameOverDialog(false));
+    gameStartTimeRef.current = Date.now();
+    gameRecordedRef.current = false;
+    gameOverDialogShownRef.current = false;
+    setIsGameEnding(false);
+    toast({
+      title: "Rematch Accepted",
+      description: "Starting a new game!",
+    });
+  }, [acceptRematch, dispatch, toast]);
+
+  const handleDeclineRematch = useCallback(() => {
+    declineRematch();
+    dispatch(setShowRematchOfferDialog(false));
+    toast({
+      title: "Rematch Declined",
+      description: "You declined the rematch offer",
+    });
+  }, [declineRematch, dispatch, toast]);
+
   // Get opponent name based on player role
   const opponentName = useMemo(() => {
     return gameState.opponentName || "Opponent";
@@ -388,6 +441,13 @@ export default function FriendGamePage() {
   const playerName = useMemo(() => {
     return user?.displayName || user?.primaryEmail?.split("@")[0] || "You";
   }, [user]);
+
+  const handleSendChatMessage = useCallback(
+    (message: string) => {
+      sendChatMessage(message, playerName);
+    },
+    [sendChatMessage, playerName]
+  );
 
   return (
     <div className="min-h-screen bg-black relative">
@@ -703,6 +763,27 @@ export default function FriendGamePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Rematch Offer Dialog */}
+      <Dialog
+        open={showRematchOfferDialog}
+        onOpenChange={(open) => dispatch(setShowRematchOfferDialog(open))}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rematch Offered</DialogTitle>
+            <DialogDescription>
+              Your opponent wants to play again. Do you accept?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-between mt-4">
+            <Button variant="outline" onClick={handleDeclineRematch}>
+              Decline
+            </Button>
+            <Button onClick={handleAcceptRematch}>Accept Rematch</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Resign/Abandon Confirmation Dialog */}
       <Dialog
         open={showResignDialog}
@@ -732,6 +813,27 @@ export default function FriendGamePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Chat Box - Show when connected and playing with opponent */}
+      {websocketState.isConnected && !gameState.isWaitingForPlayer && (
+        <ChatBox
+          messages={
+            gameState.chatMessages
+              ?.filter(
+                (msg): msg is typeof msg & { sender: "black" | "white" } =>
+                  msg.sender === "black" || msg.sender === "white"
+              )
+              .map((msg) => ({
+                ...msg,
+                isLocal: msg.sender === websocketState.playerRole,
+              })) || []
+          }
+          onSendMessage={handleSendChatMessage}
+          playerColor={
+            (websocketState.playerRole as "black" | "white") || "black"
+          }
+        />
+      )}
     </div>
   );
 }

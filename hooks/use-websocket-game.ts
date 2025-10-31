@@ -16,6 +16,7 @@ export type WebSocketMessage =
   | { type: "offer_rematch" }
   | { type: "accept_rematch" }
   | { type: "decline_rematch" }
+  | { type: "send_chat_message"; message: string; senderName?: string }
   | {
       type: "player_joined";
       player: Player;
@@ -32,6 +33,13 @@ export type WebSocketMessage =
   | { type: "rematch_offered"; player: Player }
   | { type: "rematch_accepted"; player: Player }
   | { type: "rematch_declined"; player: Player }
+  | {
+      type: "chat_message";
+      message: string;
+      sender: Player;
+      senderName: string;
+      timestamp: number;
+    }
   | { type: "game_over"; winner: "black" | "white" | "draw" }
   | { type: "player_disconnected" }
   | {
@@ -70,11 +78,11 @@ interface UseWebSocketGameReturn {
   abandonGame: () => void;
   offerDraw: () => void;
   acceptDraw: () => void;
-
   declineDraw: () => void;
   offerRematch: () => void;
   acceptRematch: () => void;
   declineRematch: () => void;
+  sendChatMessage: (message: string, senderName?: string) => void;
   disconnect: () => void;
   onMessage: (callback: (message: WebSocketMessage) => void) => () => void;
 }
@@ -413,6 +421,14 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     sendMessage({ type: "decline_rematch" });
   }, [sendMessage]);
 
+  const sendChatMessage = useCallback(
+    (message: string, senderName?: string) => {
+      console.log("Sending chat message:", message);
+      sendMessage({ type: "send_chat_message", message, senderName });
+    },
+    [sendMessage]
+  );
+
   const disconnect = useCallback(() => {
     if (ws.current) {
       ws.current.close(1000, "User disconnected");
@@ -461,6 +477,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     offerRematch,
     acceptRematch,
     declineRematch,
+    sendChatMessage,
     disconnect,
     onMessage,
   };

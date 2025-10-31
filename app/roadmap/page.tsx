@@ -160,7 +160,7 @@ export default function RoadmapPage() {
           </h2>
           <p className="text-xl text-slate-300 max-w-2xl mx-auto">
             Explore our planned features and upcoming enhancements to make
-            Othello Master even better
+            Overturn even better
           </p>
         </div>
 
