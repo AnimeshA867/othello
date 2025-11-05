@@ -1,33 +1,80 @@
-# Overturn
+# Othello Game
 
-Play Othello (Reversi) online for free! A classic black and white strategy board game with AI opponents, multiplayer modes, and ranked competitive matches.
+This is a classic Othello (Reversi) game with a modern twist, built with Next.js, TypeScript, and a real-time multiplayer backend.
+
+## Features
+
+- **Single Player vs. Bot**: Play against an AI opponent with adjustable difficulty levels.
+- **Multiplayer (Online)**: Challenge other players in real-time online matches.
+- **Ranked Multiplayer**: Compete in ranked matches to climb the leaderboard.
+- **User Authentication**: Secure sign-up and sign-in functionality.
+- **User Profiles**: View user profiles with game statistics and achievements.
+- **Leaderboard**: Global leaderboard to track top players.
+- **In-game Chat**: Communicate with your opponent during a match.
+
+For a full list of features, see the [features documentation](./docs/features.md).
+
+## Technology Stack
+
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
+- **Backend**: Node.js, Express.js, WebSocket
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js
+- **Deployment**: Docker, Vercel (or similar)
+
+For more details, see the [architecture documentation](./docs/architecture.md).
 
 ## Getting Started
 
-First, run the development server:
+To get a local copy up and running, follow these simple steps.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Prerequisites
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Node.js (v18 or later)
+- npm or yarn
+- Docker and Docker Compose
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Installation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1.  Clone the repo
+    ```sh
+    git clone https://github.com/your_username/othello-v2.git
+    ```
+2.  Install NPM packages
+    ```sh
+    npm install
+    ```
+3.  Set up your environment variables by copying `.env.example` to `.env` and filling in the required values.
+4.  Start the database with Docker
+    ```sh
+    docker-compose up -d
+    ```
+5.  Run database migrations
+    ```sh
+    npx prisma migrate dev
+    ```
+6.  Start the development server
+    ```sh
+    npm run dev
+    ```
 
-## Learn More
+For more detailed setup instructions, see the [setup documentation](./docs/setup.md).
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The project follows a standard Next.js 13 `app` directory structure.
+
+- `app/`: Contains all the routes, pages, and layouts.
+- `components/`: Shared React components.
+- `lib/`: Helper functions and core logic.
+- `server/`: WebSocket server for real-time communication.
+- `prisma/`: Database schema and migrations.
+
+For a more detailed breakdown, see the [architecture documentation](./docs/architecture.md).
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
