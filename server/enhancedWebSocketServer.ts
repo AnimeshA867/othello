@@ -12,15 +12,10 @@ import {
   removePlayerFromRoom,
   cleanupRooms,
 } from "./controllers/roomController";
-import {
-  makeMove,
-  isValidMove,
-  Player,
-  RankSetType,
-  isValidRankSetType,
-} from "../shared/gameLogic";
+import { Player, RankSetType, isValidRankSetType } from "../shared/gameLogic";
 import http from "http";
 import { createInitialGameState } from "../shared/gameLogic";
+import { transition } from "../core/othello/stateMachine";
 
 interface WebSocketMessage {
   type: string;
@@ -33,6 +28,7 @@ interface ExtendedWebSocket extends WebSocket {
 
 class EnhancedOthelloWebSocketServer {
   private wss: WebSocketServer;
+  private roomRuntime = new Map<string, { pendingCleanupAt?: number }>();
 
   constructor(serverOrPort: http.Server | number = 3003) {
     if (typeof serverOrPort === "number") {
@@ -57,7 +53,7 @@ class EnhancedOthelloWebSocketServer {
         try {
           const message: WebSocketMessage = JSON.parse(data.toString());
           console.log(
-            `[${connectionId}] Received message: ${JSON.stringify(message)}`
+            `[${connectionId}] Received message: ${JSON.stringify(message)}`,
           );
           await this.handleMessage(ws, message);
         } catch (error) {
@@ -77,14 +73,17 @@ class EnhancedOthelloWebSocketServer {
     });
 
     // Clean up old rooms every hour
-    setInterval(() => {
-      cleanupRooms();
-    }, 60 * 60 * 1000);
+    setInterval(
+      () => {
+        cleanupRooms();
+      },
+      60 * 60 * 1000,
+    );
   }
 
   private async handleMessage(
     ws: ExtendedWebSocket,
-    message: WebSocketMessage
+    message: WebSocketMessage,
   ) {
     console.log(`Received message: ${message.type}`);
 
@@ -97,7 +96,13 @@ class EnhancedOthelloWebSocketServer {
         this.joinRoom(ws, message.roomId, message.playerName);
         break;
       case "make_move":
-        this.makeMove(ws, message.row, message.col);
+        this.makeMove(
+          ws,
+          message.row,
+          message.col,
+          message.expectedRevision,
+          message.expectedGameId,
+        );
         break;
       case "restart_game":
         this.restartGame(ws);
@@ -135,7 +140,7 @@ class EnhancedOthelloWebSocketServer {
           ws,
           message.rankSetType,
           message.rank,
-          message.playerName
+          message.playerName,
         );
         break;
       case "get_room_info":
@@ -174,7 +179,7 @@ class EnhancedOthelloWebSocketServer {
     console.log(
       `Attempting to join room ${roomId} with player ${
         playerName || "Anonymous"
-      }`
+      }`,
     );
 
     const playerId = uuidv4();
@@ -215,7 +220,7 @@ class EnhancedOthelloWebSocketServer {
       console.error(`Error joining room ${roomId}:`, error);
       this.sendError(
         ws,
-        error instanceof Error ? error.message : "Failed to join room"
+        error instanceof Error ? error.message : "Failed to join room",
       );
     }
   }
@@ -224,7 +229,7 @@ class EnhancedOthelloWebSocketServer {
     ws: ExtendedWebSocket,
     rankSetType: string,
     rank: number,
-    playerName?: string
+    playerName?: string,
   ) {
     const playerId = uuidv4();
     ws.playerId = playerId;
@@ -241,7 +246,7 @@ class EnhancedOthelloWebSocketServer {
         playerId,
         playerName,
         rank || 1000,
-        rankSetType as RankSetType
+        rankSetType as RankSetType,
       );
 
       // If room is in waiting status, this is the first player
@@ -257,7 +262,7 @@ class EnhancedOthelloWebSocketServer {
         });
 
         console.log(
-          `Player ${playerName || playerId} waiting in room ${room.roomId}`
+          `Player ${playerName || playerId} waiting in room ${room.roomId}`,
         );
       } else {
         // If room is active, this is the second player
@@ -289,7 +294,7 @@ class EnhancedOthelloWebSocketServer {
         });
 
         console.log(
-          `Player ${playerName || playerId} matched in room ${room.roomId}`
+          `Player ${playerName || playerId} matched in room ${room.roomId}`,
         );
       }
     } catch (error) {
@@ -298,7 +303,13 @@ class EnhancedOthelloWebSocketServer {
     }
   }
 
-  private makeMove(ws: ExtendedWebSocket, row: number, col: number) {
+  private makeMove(
+    ws: ExtendedWebSocket,
+    row: number,
+    col: number,
+    expectedRevision?: number,
+    expectedGameId?: string,
+  ) {
     const playerId = ws.playerId;
     if (!playerId) {
       this.sendError(ws, "Player ID not found");
@@ -327,14 +338,49 @@ class EnhancedOthelloWebSocketServer {
         return;
       }
 
-      // Validate the move
-      if (!isValidMove(room.gameState, row, col)) {
-        this.sendError(ws, "Invalid move");
+      const currentRevision = room.gameState.revision ?? 0;
+      const currentGameId = room.gameState.gameId;
+
+      // Make the move through the deterministic state machine
+      const result = transition(room.gameState as any, {
+        type: "make_move",
+        player: player.color,
+        row,
+        col,
+        expectedRevision,
+        expectedGameId,
+      });
+
+      if (result.error) {
+        if (result.error.reason === "STALE_REVISION") {
+          this.sendMessage(ws, {
+            type: "stale_state",
+            reason: "STALE_REVISION",
+            expectedRevision: currentRevision,
+            gameState: room.gameState,
+          });
+          return;
+        }
+
+        if (result.error.reason === "STALE_GAME") {
+          this.sendMessage(ws, {
+            type: "stale_state",
+            reason: "STALE_GAME",
+            expectedGameId: currentGameId,
+            gameState: room.gameState,
+          });
+          return;
+        }
+
+        this.sendError(ws, result.error.reason || "Invalid move");
         return;
       }
 
-      // Make the move
-      const newGameState = makeMove(room.gameState, row, col);
+      const newGameState = {
+        ...result.state,
+        drawOfferedBy: room.gameState.drawOfferedBy ?? null,
+        rematchOfferedBy: room.gameState.rematchOfferedBy ?? null,
+      };
 
       // Update room with new game state
       updateGameState(room.roomId, playerId, newGameState);
@@ -353,6 +399,15 @@ class EnhancedOthelloWebSocketServer {
         gameState: newGameState,
       });
 
+      for (const event of result.events) {
+        if (event.type === "turn_passed") {
+          this.broadcastToRoom(room.roomId, {
+            type: "turn_passed",
+            player: event.player,
+          });
+        }
+      }
+
       // If the game is over, broadcast game over message
       if (newGameState.isGameOver) {
         this.broadcastToRoom(room.roomId, {
@@ -366,7 +421,7 @@ class EnhancedOthelloWebSocketServer {
       console.log(
         `Player ${player.name || playerId} made move at ${row},${col} in room ${
           room.roomId
-        }`
+        }`,
       );
     } catch (error) {
       console.error("Error making move:", error);
@@ -375,7 +430,55 @@ class EnhancedOthelloWebSocketServer {
   }
 
   private restartGame(ws: ExtendedWebSocket) {
-    // Implementation similar to existing websocket-server.ts
+    const playerId = ws.playerId;
+    if (!playerId) {
+      this.sendError(ws, "Player ID not found");
+      return;
+    }
+
+    const room = getRoomByPlayerId(playerId);
+    if (!room) {
+      this.sendError(ws, "Room not found");
+      return;
+    }
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) {
+      this.sendError(ws, "Player not found in room");
+      return;
+    }
+
+    this.clearRoomRuntime(room.roomId);
+
+    room.gameState = createInitialGameState();
+    room.gameState.drawOfferedBy = null;
+    room.gameState.rematchOfferedBy = null;
+    room.status = room.players.length === 2 ? "active" : "waiting";
+
+    this.broadcastToRoom(room.roomId, {
+      type: "game_restarted",
+      gameId: room.gameState.gameId,
+      revision: room.gameState.revision,
+    });
+
+    this.broadcastToRoom(room.roomId, {
+      type: "game_state",
+      gameState: room.gameState,
+    });
+
+    console.log(
+      `Room ${room.roomId} restarted by ${player.name || playerId} with gameId ${
+        room.gameState.gameId
+      }`,
+    );
+  }
+
+  private clearRoomRuntime(roomId: string) {
+    if (!this.roomRuntime.has(roomId)) {
+      return;
+    }
+
+    this.roomRuntime.delete(roomId);
   }
 
   private getRoomInfo(ws: ExtendedWebSocket, roomId: string) {
@@ -435,7 +538,7 @@ class EnhancedOthelloWebSocketServer {
 
     const roomId = room.roomId;
     console.log(
-      `[SERVER] Draw offer from player ${playerId} in room ${roomId}`
+      `[SERVER] Draw offer from player ${playerId} in room ${roomId}`,
     );
 
     if (!roomId) {
@@ -550,7 +653,7 @@ class EnhancedOthelloWebSocketServer {
 
     const roomId = room.roomId;
     console.log(
-      `[SERVER] Rematch offer from player ${playerId} in room ${roomId}`
+      `[SERVER] Rematch offer from player ${playerId} in room ${roomId}`,
     );
 
     if (!roomId) {
@@ -665,7 +768,7 @@ class EnhancedOthelloWebSocketServer {
   private handleChatMessage(
     ws: WebSocket,
     message: string,
-    senderName?: string
+    senderName?: string,
   ) {
     const playerId = (ws as any).playerId;
     const room = getRoomByPlayerId(playerId);
@@ -735,6 +838,7 @@ class EnhancedOthelloWebSocketServer {
       }
 
       // Remove player from room
+      this.clearRoomRuntime(room.roomId);
       removePlayerFromRoom(playerId);
     } catch (error) {
       console.error("Error handling disconnect:", error);
@@ -753,7 +857,7 @@ class EnhancedOthelloWebSocketServer {
       console.warn(
         `Cannot send message, socket is not open (readyState=${
           ws.readyState
-        }): ${JSON.stringify(message)}`
+        }): ${JSON.stringify(message)}`,
       );
     }
   }

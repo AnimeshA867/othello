@@ -9,6 +9,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GoogleAnalytics, MicrosoftClarity } from "@/components/analytics";
 import { AuthProvider } from "@/components/auth-provider";
+import PWARegister from "@/components/pwa-register";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import Footer from "@/components/Footer";
 
@@ -213,6 +214,7 @@ export default function RootLayout({
                 disableTransitionOnChange
               >
                 <AuthProvider>
+                  <PWARegister />
                   <GoogleAnalytics />
                   <MicrosoftClarity />
                   {children}

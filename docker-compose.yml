@@ -1,17 +1,19 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  websocket-server:
+  multiplayer-backend:
     build:
       context: .
       dockerfile: Dockerfile
+      target: backend-dev
     ports:
-      - "3003:10000"
+      - "3003:3003"
     environment:
       - NODE_ENV=development
-      - PORT=10000
+      - PORT=3003
     volumes:
-      # For development only - allows hot reloading
+      # Development mounts to iterate quickly on multiplayer backend logic.
       - ./server:/app/server
       - ./shared:/app/shared
+      - ./core:/app/core
     command: npm run start:server

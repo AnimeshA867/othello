@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es2019",
+        "target": "es2020",
         "moduleResolution": "node",
         "outDir": "./dist",
         "rootDir": "./",
@@ -11,13 +11,14 @@
         "strict": true,
         "resolveJsonModule": true,
         "lib": [
-            "es2019"
+            "es2020"
         ],
         "allowJs": true
     },
     "include": [
         "server/**/*",
-        "shared/**/*"
+        "shared/**/*",
+        "core/**/*"
     ],
     "exclude": [
         "node_modules",

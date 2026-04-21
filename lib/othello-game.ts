@@ -27,6 +27,9 @@ export interface GameState {
   }>;
   canUndo: boolean;
   undosRemaining: number;
+  revision?: number;
+  gameId?: string;
+  passCount?: number;
 }
 
 export class OthelloGame {
@@ -152,7 +155,7 @@ export class OthelloGame {
   private getFlippedPieces(
     row: number,
     col: number,
-    player: Player
+    player: Player,
   ): Position[] {
     const directions = [
       [-1, -1],
@@ -268,7 +271,7 @@ export class OthelloGame {
         depth - 1,
         Number.NEGATIVE_INFINITY,
         Number.POSITIVE_INFINITY,
-        false
+        false,
       );
 
       if (score > bestScore) {
@@ -285,7 +288,7 @@ export class OthelloGame {
     depth: number,
     alpha: number,
     beta: number,
-    isMaximizing: boolean
+    isMaximizing: boolean,
   ): number {
     if (depth === 0 || game.isGameOver()) {
       return this.evaluateBoard(game);

@@ -93,7 +93,7 @@ export function useUnifiedMultiplayerGame() {
           setGameState((prev) => {
             console.log(
               "Room created, setting local player to:",
-              message.player
+              message.player,
             );
             return {
               ...prev,
@@ -110,7 +110,7 @@ export function useUnifiedMultiplayerGame() {
               "Player joined, current localPlayer:",
               prev.localPlayer,
               "joined player:",
-              message.player
+              message.player,
             );
             if (message.player && !prev.localPlayer) {
               return {
@@ -168,7 +168,7 @@ export function useUnifiedMultiplayerGame() {
             if (message.gameState.validMoves) {
               console.log(
                 `Valid moves in ranked game: ${message.gameState.validMoves.length}`,
-                message.gameState.validMoves
+                message.gameState.validMoves,
               );
             } else {
               console.warn("No valid moves in ranked game state");
@@ -187,7 +187,7 @@ export function useUnifiedMultiplayerGame() {
                       .filter((cell: "black" | "white" | null) => cell !== null)
                       .length
                   } pieces`
-                : "No board in update"
+                : "No board in update",
             );
 
             // Keep the original validMoves from the server
@@ -203,6 +203,19 @@ export function useUnifiedMultiplayerGame() {
 
             return newState;
           });
+          break;
+
+        case "stale_state":
+          setGameState((prev) => ({
+            ...prev,
+            ...message.gameState,
+            localPlayer: prev.localPlayer,
+            roomId: prev.roomId,
+            isWaitingForPlayer: prev.isWaitingForPlayer,
+            opponentName: prev.opponentName,
+            opponentRank: prev.opponentRank,
+            rankSetType: prev.rankSetType,
+          }));
           break;
 
         case "waiting_for_player":
@@ -288,14 +301,14 @@ export function useUnifiedMultiplayerGame() {
     (playerName?: string) => {
       createRoom(playerName);
     },
-    [createRoom]
+    [createRoom],
   );
 
   const joinRandomGame = useCallback(
     (
       playerName?: string,
       rankSetType: RankSetType = "beginner",
-      rank: number = 1000
+      rank: number = 1000,
     ) => {
       sendMessage({
         type: "join_random",
@@ -310,7 +323,7 @@ export function useUnifiedMultiplayerGame() {
         isWaitingForPlayer: true,
       }));
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const joinGameRoom = useCallback(
@@ -321,7 +334,7 @@ export function useUnifiedMultiplayerGame() {
         roomId,
       }));
     },
-    [joinRoom]
+    [joinRoom],
   );
 
   const makeMove = useCallback(
@@ -341,7 +354,7 @@ export function useUnifiedMultiplayerGame() {
 
       // Check if it's a valid move
       const isValidMove = gameState.validMoves.some(
-        (move) => move.row === row && move.col === col
+        (move) => move.row === row && move.col === col,
       );
 
       if (!isValidMove) {
@@ -350,7 +363,7 @@ export function useUnifiedMultiplayerGame() {
       }
 
       console.log("Sending move to server:", row, col);
-      sendMove(row, col);
+      sendMove(row, col, gameState.revision, gameState.gameId);
       return true;
     },
     [
@@ -358,7 +371,7 @@ export function useUnifiedMultiplayerGame() {
       gameState.currentPlayer,
       gameState.validMoves,
       sendMove,
-    ]
+    ],
   );
 
   const restartGame = useCallback(() => {
@@ -400,7 +413,7 @@ export function useUnifiedMultiplayerGame() {
     (message: string, senderName?: string) => {
       sendChatMsg(message, senderName);
     },
-    [sendChatMsg]
+    [sendChatMsg],
   );
 
   const leaveRoom = useCallback(() => {
@@ -514,7 +527,7 @@ export function useRankedMultiplayerGame() {
     (
       rankSetType: RankSetType = "beginner",
       rank: number = 1000,
-      playerName?: string
+      playerName?: string,
     ) => {
       sendMessage({
         type: "join_random",
@@ -529,7 +542,7 @@ export function useRankedMultiplayerGame() {
         isWaitingForPlayer: true,
       }));
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   // Register message handlers
@@ -540,7 +553,7 @@ export function useRankedMultiplayerGame() {
           setGameState((prev) => {
             console.log(
               "Room created, setting local player to:",
-              message.player
+              message.player,
             );
             return {
               ...prev,
@@ -557,7 +570,7 @@ export function useRankedMultiplayerGame() {
               "Player joined, current localPlayer:",
               prev.localPlayer,
               "joined player:",
-              message.player
+              message.player,
             );
             if (message.player && !prev.localPlayer) {
               return {
@@ -615,7 +628,7 @@ export function useRankedMultiplayerGame() {
             if (message.gameState.validMoves) {
               console.log(
                 `Valid moves in ranked game: ${message.gameState.validMoves.length}`,
-                message.gameState.validMoves
+                message.gameState.validMoves,
               );
             } else {
               console.warn("No valid moves in ranked game state");
@@ -634,7 +647,7 @@ export function useRankedMultiplayerGame() {
                       .filter((cell: "black" | "white" | null) => cell !== null)
                       .length
                   } pieces`
-                : "No board in update"
+                : "No board in update",
             );
 
             // Keep the original validMoves from the server
@@ -652,6 +665,19 @@ export function useRankedMultiplayerGame() {
 
             return newState;
           });
+          break;
+
+        case "stale_state":
+          setGameState((prev) => ({
+            ...prev,
+            ...message.gameState,
+            localPlayer: prev.localPlayer,
+            roomId: prev.roomId,
+            isWaitingForPlayer: prev.isWaitingForPlayer,
+            opponentName: prev.opponentName,
+            opponentRank: prev.opponentRank,
+            rankSetType: prev.rankSetType,
+          }));
           break;
 
         case "waiting_for_player":
@@ -718,7 +744,7 @@ export function useRankedMultiplayerGame() {
         gameState.localPlayer === null ||
         gameState.localPlayer !== gameState.currentPlayer ||
         !gameState.validMoves.some(
-          (move) => move.row === row && move.col === col
+          (move) => move.row === row && move.col === col,
         )
       ) {
         console.warn("Invalid move attempt in ranked game");
@@ -726,9 +752,9 @@ export function useRankedMultiplayerGame() {
       }
 
       console.log("Sending ranked move to server:", row, col);
-      sendMove(row, col);
+      sendMove(row, col, gameState.revision, gameState.gameId);
     },
-    [gameState, sendMove]
+    [gameState, sendMove],
   );
 
   const leaveRoom = useCallback(() => {

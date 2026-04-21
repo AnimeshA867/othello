@@ -1,5 +1,8 @@
 "use strict";
 
+import { createInitialState, transition } from "../core/othello/stateMachine";
+import type { DiscColor, MatrixGameState } from "../core/othello/types";
+
 export interface Player {
   id: string;
   name?: string;
@@ -24,6 +27,9 @@ export interface GameState {
   drawOfferedBy?: "black" | "white" | null;
   rematchOfferedBy?: "black" | "white" | null;
   moveHistory: Position[];
+  revision?: number;
+  gameId?: string;
+  passCount?: number;
 }
 
 export interface Room {
@@ -57,39 +63,51 @@ export function generateRoomId(): string {
   return result;
 }
 
-export function createInitialGameState(): GameState {
-  // Create an 8x8 board filled with null
-  const board: ("black" | "white" | null)[][] = Array(8)
-    .fill(null)
-    .map(() => Array(8).fill(null));
-
-  // Set up the initial pieces
-  board[3][3] = "white";
-  board[3][4] = "black";
-  board[4][3] = "black";
-  board[4][4] = "white";
-
-  // Calculate valid moves for the starting player (black)
-  const validMoves = getValidMoves(board, "black");
-
+function fromCoreState(state: MatrixGameState): GameState {
   return {
-    board,
-    currentPlayer: "black",
-    blackScore: 2,
-    whiteScore: 2,
-    validMoves,
-    lastMove: null,
-    isGameOver: false,
-    winner: null,
-    drawOfferedBy: null,
-    rematchOfferedBy: null,
-    moveHistory: [],
+    board: state.board,
+    currentPlayer: state.currentPlayer,
+    validMoves: state.validMoves,
+    lastMove: state.lastMove,
+    blackScore: state.blackScore,
+    whiteScore: state.whiteScore,
+    isGameOver: state.isGameOver,
+    winner: state.winner,
+    drawOfferedBy: state.drawOfferedBy ?? null,
+    rematchOfferedBy: state.rematchOfferedBy ?? null,
+    moveHistory: state.moveHistory,
+    revision: state.revision,
+    gameId: state.gameId,
+    passCount: state.passCount,
   };
+}
+
+function toCoreState(state: GameState): MatrixGameState {
+  return {
+    board: state.board,
+    currentPlayer: state.currentPlayer,
+    validMoves: state.validMoves,
+    lastMove: state.lastMove,
+    blackScore: state.blackScore,
+    whiteScore: state.whiteScore,
+    isGameOver: state.isGameOver,
+    winner: state.winner,
+    drawOfferedBy: state.drawOfferedBy ?? null,
+    rematchOfferedBy: state.rematchOfferedBy ?? null,
+    moveHistory: state.moveHistory,
+    revision: state.revision ?? 0,
+    gameId: state.gameId ?? generateRoomId(),
+    passCount: state.passCount ?? 0,
+  };
+}
+
+export function createInitialGameState(): GameState {
+  return fromCoreState(createInitialState());
 }
 
 export function getValidMoves(
   board: ("black" | "white" | null)[][],
-  player: "black" | "white"
+  player: "black" | "white",
 ): Position[] {
   const validMoves: Position[] = [];
   const opponent = player === "black" ? "white" : "black";
@@ -144,119 +162,34 @@ export function getValidMoves(
 export function makeMove(
   gameState: GameState,
   row: number,
-  col: number
+  col: number,
 ): GameState {
-  if (!isValidMove(gameState, row, col)) {
-    throw new Error("Invalid move");
+  const coreState = toCoreState(gameState);
+  const result = transition(coreState, {
+    type: "make_move",
+    player: gameState.currentPlayer as DiscColor,
+    row,
+    col,
+  });
+
+  if (result.error) {
+    throw new Error(result.error.reason || "Invalid move");
   }
 
-  const newBoard = gameState.board.map((r) => [...r]);
-  const player = gameState.currentPlayer;
-  const opponent = player === "black" ? "white" : "black";
-
-  // Place the piece
-  newBoard[row][col] = player;
-
-  // Flip opponent pieces
-  const directions = [
-    [-1, -1],
-    [-1, 0],
-    [-1, 1],
-    [0, -1],
-    [0, 1],
-    [1, -1],
-    [1, 0],
-    [1, 1],
-  ];
-
-  for (const [dx, dy] of directions) {
-    let r = row + dx;
-    let c = col + dy;
-    const piecesToFlip: Position[] = [];
-
-    while (r >= 0 && r < 8 && c >= 0 && c < 8 && newBoard[r][c] === opponent) {
-      piecesToFlip.push({ row: r, col: c });
-      r += dx;
-      c += dy;
-    }
-
-    if (
-      r >= 0 &&
-      r < 8 &&
-      c >= 0 &&
-      c < 8 &&
-      newBoard[r][c] === player &&
-      piecesToFlip.length > 0
-    ) {
-      for (const pos of piecesToFlip) {
-        newBoard[pos.row][pos.col] = player;
-      }
-    }
-  }
-
-  // Count the scores
-  let blackScore = 0;
-  let whiteScore = 0;
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      if (newBoard[r][c] === "black") blackScore++;
-      else if (newBoard[r][c] === "white") whiteScore++;
-    }
-  }
-
-  // Switch player
-  const nextPlayer = player === "black" ? "white" : "black";
-  const validMoves = getValidMoves(newBoard, nextPlayer);
-
-  // If next player has no valid moves, check if current player has moves
-  let currentPlayerTurn: "black" | "white" = nextPlayer;
-  let currentValidMoves = validMoves;
-
-  if (validMoves.length === 0) {
-    const currentPlayerMoves = getValidMoves(newBoard, player);
-    if (currentPlayerMoves.length > 0) {
-      currentPlayerTurn = player;
-      currentValidMoves = currentPlayerMoves;
-    }
-  }
-
-  // Check for game over
-  const isGameOver =
-    blackScore + whiteScore === 64 || currentValidMoves.length === 0;
-  let winner: "black" | "white" | "draw" | null = null;
-
-  if (isGameOver) {
-    if (blackScore > whiteScore) {
-      winner = "black";
-    } else if (whiteScore > blackScore) {
-      winner = "white";
-    } else {
-      winner = "draw";
-    }
-  }
-
-  // Update move history
-  const moveHistory = [...gameState.moveHistory, { row, col }];
-
+  const updated = fromCoreState(result.state);
   return {
-    board: newBoard,
-    currentPlayer: currentPlayerTurn,
-    blackScore,
-    whiteScore,
-    validMoves: currentValidMoves,
-    lastMove: { row, col },
-    isGameOver,
-    winner,
-    moveHistory,
+    ...updated,
+    drawOfferedBy: gameState.drawOfferedBy ?? null,
+    rematchOfferedBy: gameState.rematchOfferedBy ?? null,
   };
 }
 
 export function isValidMove(
   gameState: GameState,
   row: number,
-  col: number
+  col: number,
 ): boolean {
   return gameState.validMoves.some(
-    (move) => move.row === row && move.col === col
+    (move) => move.row === row && move.col === col,
   );
 }

@@ -7,7 +7,13 @@ import { config } from "@/lib/config";
 export type WebSocketMessage =
   | { type: "join_room"; roomId: string; playerName?: string }
   | { type: "create_room"; playerName?: string }
-  | { type: "make_move"; row: number; col: number }
+  | {
+      type: "make_move";
+      row: number;
+      col: number;
+      expectedRevision?: number;
+      expectedGameId?: string;
+    }
   | { type: "restart_game" }
   | { type: "resign_game" }
   | { type: "offer_draw" }
@@ -25,7 +31,15 @@ export type WebSocketMessage =
     }
   | { type: "room_created"; roomId: string; player: Player }
   | { type: "game_state"; gameState: any }
+  | {
+      type: "stale_state";
+      reason: "STALE_REVISION" | "STALE_GAME";
+      expectedRevision?: number;
+      expectedGameId?: string;
+      gameState: any;
+    }
   | { type: "move_made"; row: number; col: number; player: Player }
+  | { type: "turn_passed"; player: Player }
   | { type: "game_restarted" }
   | { type: "player_resigned"; player: Player }
   | { type: "draw_offered"; player: Player }
@@ -72,7 +86,12 @@ interface UseWebSocketGameReturn {
   sendMessage: (message: WebSocketMessage) => void;
   createRoom: (playerName?: string) => void;
   joinRoom: (roomId: string, playerName?: string) => void;
-  makeMove: (row: number, col: number) => void;
+  makeMove: (
+    row: number,
+    col: number,
+    expectedRevision?: number,
+    expectedGameId?: string,
+  ) => void;
   restartGame: () => void;
   resignGame: () => void;
   abandonGame: () => void;
@@ -101,7 +120,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
   const messageCallbacks = useRef<Set<(message: WebSocketMessage) => void>>(
-    new Set()
+    new Set(),
   );
   // Message queue for storing messages that couldn't be sent immediately
   const messageQueue = useRef<WebSocketMessage[]>([]);
@@ -147,7 +166,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         // Process any queued messages
         if (messageQueue.current.length > 0) {
           console.log(
-            `Processing ${messageQueue.current.length} queued messages`
+            `Processing ${messageQueue.current.length} queued messages`,
           );
           messageQueue.current.forEach((message) => {
             if (ws.current?.readyState === WebSocket.OPEN) {
@@ -188,7 +207,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         console.log(
           `WebSocket closed with code ${event.code}. Reason: ${
             event.reason || "No reason provided"
-          }`
+          }`,
         );
 
         let errorMessage = null;
@@ -220,13 +239,13 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           console.log(
             `Attempting to reconnect (attempt ${
               reconnectAttempts.current + 1
-            }/${maxReconnectAttempts})...`
+            }/${maxReconnectAttempts})...`,
           );
 
           // Exponential backoff for reconnection
           const delay = Math.min(
             1000 * Math.pow(2, reconnectAttempts.current),
-            10000
+            10000,
           );
           console.log(`Reconnecting in ${delay}ms`);
 
@@ -236,7 +255,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           }, delay);
         } else if (reconnectAttempts.current >= maxReconnectAttempts) {
           console.error(
-            `Maximum reconnection attempts (${maxReconnectAttempts}) reached`
+            `Maximum reconnection attempts (${maxReconnectAttempts}) reached`,
           );
         }
       };
@@ -329,7 +348,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         }
       } else {
         console.warn(
-          "WebSocket is not connected, queueing message and attempting to connect"
+          "WebSocket is not connected, queueing message and attempting to connect",
         );
         // Add to message queue
         messageQueue.current.push(message);
@@ -340,13 +359,13 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         }
       }
     },
-    [connect, websocketState.isConnecting]
+    [connect, websocketState.isConnecting],
   );
 
   const createRoom = useCallback(
     (playerName?: string) => {
       console.log(
-        `Creating room with player name: ${playerName || "anonymous"}`
+        `Creating room with player name: ${playerName || "anonymous"}`,
       );
 
       // Always queue the message first to ensure it gets sent
@@ -360,7 +379,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         sendMessage({ type: "create_room", playerName });
       }
     },
-    [websocketState.isConnected, connect, sendMessage]
+    [websocketState.isConnected, connect, sendMessage],
   );
 
   const joinRoom = useCallback(
@@ -370,14 +389,25 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       }
       sendMessage({ type: "join_room", roomId, playerName });
     },
-    [websocketState.isConnected, connect, sendMessage]
+    [websocketState.isConnected, connect, sendMessage],
   );
 
   const makeMove = useCallback(
-    (row: number, col: number) => {
-      sendMessage({ type: "make_move", row, col });
+    (
+      row: number,
+      col: number,
+      expectedRevision?: number,
+      expectedGameId?: string,
+    ) => {
+      sendMessage({
+        type: "make_move",
+        row,
+        col,
+        expectedRevision,
+        expectedGameId,
+      });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const restartGame = useCallback(() => {
@@ -426,7 +456,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       console.log("Sending chat message:", message);
       sendMessage({ type: "send_chat_message", message, senderName });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const disconnect = useCallback(() => {
@@ -453,7 +483,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         messageCallbacks.current.delete(callback);
       };
     },
-    []
+    [],
   );
 
   useEffect(() => {
