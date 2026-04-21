@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import userReducer from "./slices/userSlice";
 import gameReducer from "./slices/gameSlice";
 import uiReducer from "./slices/uiSlice";
+import matchSessionReducer from "@/state/slices/matchSessionSlice";
 
 export const makeStore = () => {
   return configureStore({
@@ -9,6 +10,7 @@ export const makeStore = () => {
       user: userReducer,
       game: gameReducer,
       ui: uiReducer,
+      matchSession: matchSessionReducer,
     },
   });
 };

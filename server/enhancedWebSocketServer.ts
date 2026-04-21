@@ -6,16 +6,17 @@ import {
   findOrCreateRoom,
   createRoom,
   joinRoom,
-  updateGameState,
   getRoom,
   getRoomByPlayerId,
-  removePlayerFromRoom,
   cleanupRooms,
 } from "./controllers/roomController";
 import { Player, RankSetType, isValidRankSetType } from "../shared/gameLogic";
 import http from "http";
-import { createInitialGameState } from "../shared/gameLogic";
-import { transition } from "../core/othello/stateMachine";
+import {
+  applyMoveIntent,
+  handlePlayerDisconnect,
+  restartSession,
+} from "../network/server/sessionService";
 
 interface WebSocketMessage {
   type: string;
@@ -317,110 +318,81 @@ class EnhancedOthelloWebSocketServer {
     }
 
     try {
-      // Get the room for this player
-      const room = getRoomByPlayerId(playerId);
-
-      if (!room) {
-        this.sendError(ws, "Room not found");
-        return;
-      }
-
-      // Check if it's this player's turn
-      const player = room.players.find((p) => p.id === playerId);
-
-      if (!player) {
-        this.sendError(ws, "Player not found in room");
-        return;
-      }
-
-      if (player.color !== room.gameState.currentPlayer) {
-        this.sendError(ws, "Not your turn");
-        return;
-      }
-
-      const currentRevision = room.gameState.revision ?? 0;
-      const currentGameId = room.gameState.gameId;
-
-      // Make the move through the deterministic state machine
-      const result = transition(room.gameState as any, {
-        type: "make_move",
-        player: player.color,
+      const result = applyMoveIntent({
+        playerId,
         row,
         col,
         expectedRevision,
         expectedGameId,
       });
 
-      if (result.error) {
-        if (result.error.reason === "STALE_REVISION") {
+      if (!result.ok) {
+        if (result.code === "STALE_REVISION") {
           this.sendMessage(ws, {
             type: "stale_state",
             reason: "STALE_REVISION",
-            expectedRevision: currentRevision,
-            gameState: room.gameState,
+            expectedRevision: result.expectedRevision,
+            gameState: result.roomState,
           });
           return;
         }
 
-        if (result.error.reason === "STALE_GAME") {
+        if (result.code === "STALE_GAME") {
           this.sendMessage(ws, {
             type: "stale_state",
             reason: "STALE_GAME",
-            expectedGameId: currentGameId,
-            gameState: room.gameState,
+            expectedGameId: result.expectedGameId,
+            gameState: result.roomState,
           });
           return;
         }
 
-        this.sendError(ws, result.error.reason || "Invalid move");
+        if (result.code === "NOT_YOUR_TURN") {
+          this.sendError(ws, "Not your turn");
+          return;
+        }
+
+        this.sendError(ws, result.code || "Invalid move");
         return;
       }
-
-      const newGameState = {
-        ...result.state,
-        drawOfferedBy: room.gameState.drawOfferedBy ?? null,
-        rematchOfferedBy: room.gameState.rematchOfferedBy ?? null,
-      };
-
-      // Update room with new game state
-      updateGameState(room.roomId, playerId, newGameState);
+      const { data } = result;
 
       // Broadcast the move to all players in the room
-      this.broadcastToRoom(room.roomId, {
+      this.broadcastToRoom(data.roomId, {
         type: "move_made",
         row,
         col,
-        player: player.color,
+        player: data.playerColor,
       });
 
       // Broadcast the updated game state
-      this.broadcastToRoom(room.roomId, {
+      this.broadcastToRoom(data.roomId, {
         type: "game_state",
-        gameState: newGameState,
+        gameState: data.gameState,
       });
 
-      for (const event of result.events) {
+      for (const event of data.events) {
         if (event.type === "turn_passed") {
-          this.broadcastToRoom(room.roomId, {
+          this.broadcastToRoom(data.roomId, {
             type: "turn_passed",
-            player: event.player,
+            player: data.gameState.currentPlayer,
           });
         }
       }
 
       // If the game is over, broadcast game over message
-      if (newGameState.isGameOver) {
-        this.broadcastToRoom(room.roomId, {
+      if (data.gameState.isGameOver) {
+        this.broadcastToRoom(data.roomId, {
           type: "game_over",
-          winner: newGameState.winner,
-          blackScore: newGameState.blackScore,
-          whiteScore: newGameState.whiteScore,
+          winner: data.gameState.winner,
+          blackScore: data.gameState.blackScore,
+          whiteScore: data.gameState.whiteScore,
         });
       }
 
       console.log(
-        `Player ${player.name || playerId} made move at ${row},${col} in room ${
-          room.roomId
+        `Player ${data.playerName || playerId} made move at ${row},${col} in room ${
+          data.roomId
         }`,
       );
     } catch (error) {
@@ -436,39 +408,29 @@ class EnhancedOthelloWebSocketServer {
       return;
     }
 
-    const room = getRoomByPlayerId(playerId);
-    if (!room) {
-      this.sendError(ws, "Room not found");
+    const result = restartSession(playerId);
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
+    const { data } = result;
 
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) {
-      this.sendError(ws, "Player not found in room");
-      return;
-    }
+    this.clearRoomRuntime(data.roomId);
 
-    this.clearRoomRuntime(room.roomId);
-
-    room.gameState = createInitialGameState();
-    room.gameState.drawOfferedBy = null;
-    room.gameState.rematchOfferedBy = null;
-    room.status = room.players.length === 2 ? "active" : "waiting";
-
-    this.broadcastToRoom(room.roomId, {
+    this.broadcastToRoom(data.roomId, {
       type: "game_restarted",
-      gameId: room.gameState.gameId,
-      revision: room.gameState.revision,
+      gameId: data.gameState.gameId,
+      revision: data.gameState.revision,
     });
 
-    this.broadcastToRoom(room.roomId, {
+    this.broadcastToRoom(data.roomId, {
       type: "game_state",
-      gameState: room.gameState,
+      gameState: data.gameState,
     });
 
     console.log(
-      `Room ${room.roomId} restarted by ${player.name || playerId} with gameId ${
-        room.gameState.gameId
+      `Room ${data.roomId} restarted by ${data.playerName || playerId} with gameId ${
+        data.gameState.gameId
       }`,
     );
   }
@@ -802,44 +764,29 @@ class EnhancedOthelloWebSocketServer {
     }
 
     try {
-      const room = getRoomByPlayerId(playerId);
-
-      if (!room) {
+      const result = handlePlayerDisconnect(playerId);
+      if (!result.ok) {
         return;
       }
-
-      const player = room.players.find((p) => p.id === playerId);
-
-      if (!player) {
-        return;
-      }
+      const { data } = result;
 
       // If game is active, notify the other player
-      if (room.status === "active") {
-        this.broadcastToRoom(room.roomId, {
-          type: "player_disconnected",
-          player: player.color,
-          name: player.name,
+      this.broadcastToRoom(data.roomId, {
+        type: "player_disconnected",
+        player: data.playerColor,
+        name: data.playerName,
+      });
+
+      if (data.winner) {
+        this.broadcastToRoom(data.roomId, {
+          type: "game_over",
+          winner: data.winner,
+          reason: "disconnect",
         });
-
-        // Set game as finished, with other player as winner
-        const otherPlayer = room.players.find((p) => p.id !== playerId);
-
-        if (otherPlayer) {
-          room.gameState.isGameOver = true;
-          room.gameState.winner = otherPlayer.color;
-
-          this.broadcastToRoom(room.roomId, {
-            type: "game_over",
-            winner: otherPlayer.color,
-            reason: "disconnect",
-          });
-        }
       }
 
       // Remove player from room
-      this.clearRoomRuntime(room.roomId);
-      removePlayerFromRoom(playerId);
+      this.clearRoomRuntime(data.roomId);
     } catch (error) {
       console.error("Error handling disconnect:", error);
     }
