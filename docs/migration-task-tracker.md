@@ -4,7 +4,6 @@ Last updated: 2026-04-22
 
 ## TODO
 
-- [ ] Replace ad-hoc websocket event unions with shared protocol types from `network/protocol/game-events.ts`.
 - [ ] Incrementally shift UI consumption from local hook state to `matchSession` selectors in one game screen.
 
 ## Completed
@@ -24,6 +23,7 @@ Last updated: 2026-04-22
 - [x] Added session service tests for stale state rejection, restart invalidation, draw lifecycle, and rematch lifecycle.
 - [x] Added session service tests for resign and chat-context resolution paths.
 - [x] Added reducer tests for `matchSessionSlice` transitions.
+- [x] Replaced ad-hoc websocket unions with shared protocol types in `network/protocol/game-events.ts` and transport hooks/server.
 - [x] Added PWA baseline (`public/sw.js`, registration component, manifest/cache header updates).
 - [x] Updated backend Docker/dev compose flow for multiplayer backend layering.
 
@@ -38,3 +38,5 @@ Last updated: 2026-04-22
 - 2026-04-22: Added Vitest setup + core session/reducer tests; marked testing TODOs complete.
 - 2026-04-22: Isolated Vitest from Next PostCSS config in `vitest.config.ts` and verified `bun run test` passes (2 files, 7 tests).
 - 2026-04-22: Added resign/chat session-service tests and updated next-phase TODO queue.
+- 2026-04-22: Integrated shared websocket protocol types across `use-websocket-game` and `enhancedWebSocketServer`; marked protocol-typing TODO complete.
+- 2026-04-22: Normalized multiplayer snapshot typing after protocol integration and re-verified test suite (2 files, 9 tests passing).

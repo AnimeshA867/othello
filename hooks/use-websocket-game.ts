@@ -3,74 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Player, Position } from "@/lib/othello-game";
 import { config } from "@/lib/config";
+import type { ClientIntent, ServerEvent } from "@/network/protocol/game-events";
 
-export type WebSocketMessage =
-  | { type: "join_room"; roomId: string; playerName?: string }
-  | { type: "create_room"; playerName?: string }
-  | {
-      type: "make_move";
-      row: number;
-      col: number;
-      expectedRevision?: number;
-      expectedGameId?: string;
-    }
-  | { type: "restart_game" }
-  | { type: "resign_game" }
-  | { type: "offer_draw" }
-  | { type: "accept_draw" }
-  | { type: "decline_draw" }
-  | { type: "offer_rematch" }
-  | { type: "accept_rematch" }
-  | { type: "decline_rematch" }
-  | { type: "send_chat_message"; message: string; senderName?: string }
-  | {
-      type: "player_joined";
-      player: Player;
-      playerName?: string;
-      rank?: number;
-    }
-  | { type: "room_created"; roomId: string; player: Player }
-  | { type: "game_state"; gameState: any }
-  | {
-      type: "stale_state";
-      reason: "STALE_REVISION" | "STALE_GAME";
-      expectedRevision?: number;
-      expectedGameId?: string;
-      gameState: any;
-    }
-  | { type: "move_made"; row: number; col: number; player: Player }
-  | { type: "turn_passed"; player: Player }
-  | { type: "game_restarted" }
-  | { type: "player_resigned"; player: Player }
-  | { type: "draw_offered"; player: Player }
-  | { type: "draw_declined"; player: Player }
-  | { type: "rematch_offered"; player: Player }
-  | { type: "rematch_accepted"; player: Player }
-  | { type: "rematch_declined"; player: Player }
-  | {
-      type: "chat_message";
-      message: string;
-      sender: Player;
-      senderName: string;
-      timestamp: number;
-    }
-  | { type: "game_over"; winner: "black" | "white" | "draw" }
-  | { type: "player_disconnected" }
-  | {
-      type: "game_ready";
-      roomId: string;
-      players: { black: string; white: string };
-    }
-  | { type: "error"; message: string }
-  | { type: "room_full" }
-  | { type: "invalid_move" }
-  | { type: "waiting_for_player" }
-  | {
-      type: "join_random";
-      rankSetType: string;
-      rank: number;
-      playerName?: string;
-    };
+export type WebSocketClientMessage = ClientIntent;
+export type WebSocketServerMessage = ServerEvent;
+export type WebSocketMessage = WebSocketClientMessage | WebSocketServerMessage;
 
 export interface WebSocketState {
   isConnected: boolean;
@@ -83,7 +20,7 @@ export interface WebSocketState {
 
 interface UseWebSocketGameReturn {
   websocketState: WebSocketState;
-  sendMessage: (message: WebSocketMessage) => void;
+  sendMessage: (message: WebSocketClientMessage) => void;
   createRoom: (playerName?: string) => void;
   joinRoom: (roomId: string, playerName?: string) => void;
   makeMove: (
@@ -103,7 +40,9 @@ interface UseWebSocketGameReturn {
   declineRematch: () => void;
   sendChatMessage: (message: string, senderName?: string) => void;
   disconnect: () => void;
-  onMessage: (callback: (message: WebSocketMessage) => void) => () => void;
+  onMessage: (
+    callback: (message: WebSocketServerMessage) => void,
+  ) => () => void;
 }
 
 export function useWebSocketGame(): UseWebSocketGameReturn {
@@ -119,11 +58,11 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  const messageCallbacks = useRef<Set<(message: WebSocketMessage) => void>>(
-    new Set(),
-  );
+  const messageCallbacks = useRef<
+    Set<(message: WebSocketServerMessage) => void>
+  >(new Set());
   // Message queue for storing messages that couldn't be sent immediately
-  const messageQueue = useRef<WebSocketMessage[]>([]);
+  const messageQueue = useRef<WebSocketClientMessage[]>([]);
 
   const connect = useCallback(() => {
     // If there's an existing connection, close it properly first
@@ -181,7 +120,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
 
       ws.current.onmessage = (event) => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data);
+          const message: WebSocketServerMessage = JSON.parse(event.data);
           console.log("Received WebSocket message:", message);
           handleMessage(message);
         } catch (error) {
@@ -278,7 +217,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
     }
   }, []);
 
-  const handleMessage = useCallback((message: WebSocketMessage) => {
+  const handleMessage = useCallback((message: WebSocketServerMessage) => {
     // Handle connection-related messages
     switch (message.type) {
       case "room_created":
@@ -336,7 +275,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   }, []);
 
   const sendMessage = useCallback(
-    (message: WebSocketMessage) => {
+    (message: WebSocketClientMessage) => {
       if (ws.current?.readyState === WebSocket.OPEN) {
         console.log("Sending WebSocket message:", message);
         try {
@@ -475,7 +414,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   }, []);
 
   const onMessage = useCallback(
-    (callback: (message: WebSocketMessage) => void) => {
+    (callback: (message: WebSocketServerMessage) => void) => {
       messageCallbacks.current.add(callback);
 
       // Return cleanup function

@@ -131,18 +131,21 @@ export function useMultiplayerGame() {
         case "game_state":
           console.log("Ranked game state received:", message.gameState);
           setGameState((prev) => {
+            const serverState =
+              message.gameState as Partial<MultiplayerGameState>;
+
             // Log valid moves for debugging
-            if (message.gameState.validMoves) {
+            if (serverState.validMoves) {
               console.log(
-                `Valid moves in ranked game: ${message.gameState.validMoves.length}`,
-                message.gameState.validMoves,
+                `Valid moves in ranked game: ${serverState.validMoves.length}`,
+                serverState.validMoves,
               );
             } else {
               console.warn("No valid moves in ranked game state");
             }
 
             // Ensure we don't lose board state if it's not included in the update
-            const updatedBoard = message.gameState.board || prev.board;
+            const updatedBoard = serverState.board || prev.board;
 
             // Log board state for debugging
             console.log(
@@ -160,7 +163,7 @@ export function useMultiplayerGame() {
             // Keep the original validMoves from the server
             const newState: MultiplayerGameState = {
               ...prev,
-              ...message.gameState,
+              ...serverState,
               board: updatedBoard,
               localPlayer: prev.localPlayer,
               roomId: prev.roomId,
@@ -173,9 +176,10 @@ export function useMultiplayerGame() {
           break;
 
         case "stale_state":
+          const staleState = message.gameState as Partial<MultiplayerGameState>;
           setGameState((prev) => ({
             ...prev,
-            ...message.gameState,
+            ...staleState,
             localPlayer: prev.localPlayer,
             roomId: prev.roomId,
             isWaitingForPlayer: prev.isWaitingForPlayer,

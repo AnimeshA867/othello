@@ -25,11 +25,14 @@ import {
   resolveChatContext,
   restartSession,
 } from "../network/server/sessionService";
+import type { ClientIntent } from "../network/protocol/game-events";
 
-interface WebSocketMessage {
+interface UnknownMessage {
   type: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
+
+type WebSocketMessage = ClientIntent | UnknownMessage;
 
 interface ExtendedWebSocket extends WebSocket {
   playerId?: string;
