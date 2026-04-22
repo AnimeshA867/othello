@@ -63,6 +63,36 @@ export interface DisconnectOutcome {
   winner: "black" | "white" | null;
 }
 
+export interface DrawOfferOutcome {
+  roomId: string;
+  playerColor: "black" | "white";
+}
+
+export interface DrawResolutionOutcome {
+  roomId: string;
+  playerColor: "black" | "white";
+  gameState: GameState;
+}
+
+export interface RematchOfferOutcome {
+  roomId: string;
+  playerColor: "black" | "white";
+}
+
+export interface RematchAcceptedOutcome {
+  roomId: string;
+  gameState: GameState;
+  players: {
+    black: string;
+    white: string;
+  };
+}
+
+export interface RematchDeclinedOutcome {
+  roomId: string;
+  playerColor: "black" | "white";
+}
+
 function getPlayerContext(playerId: string): SessionResult<{
   room: NonNullable<ReturnType<typeof getRoomByPlayerId>>;
   player: {
@@ -117,7 +147,9 @@ function toMatrixGameState(state: GameState): MatrixGameState {
   };
 }
 
-export function applyMoveIntent(intent: MoveIntent): SessionResult<MoveOutcome> {
+export function applyMoveIntent(
+  intent: MoveIntent,
+): SessionResult<MoveOutcome> {
   const context = getPlayerContext(intent.playerId);
   if (!context.ok) {
     return context;
@@ -185,7 +217,9 @@ export function applyMoveIntent(intent: MoveIntent): SessionResult<MoveOutcome> 
   };
 }
 
-export function restartSession(playerId: string): SessionResult<RestartOutcome> {
+export function restartSession(
+  playerId: string,
+): SessionResult<RestartOutcome> {
   const context = getPlayerContext(playerId);
   if (!context.ok) {
     return context;
@@ -221,7 +255,9 @@ export function handlePlayerDisconnect(
   let winner: "black" | "white" | null = null;
 
   if (room.status === "active") {
-    const otherPlayer = room.players.find((candidate) => candidate.id !== playerId);
+    const otherPlayer = room.players.find(
+      (candidate) => candidate.id !== playerId,
+    );
     if (otherPlayer) {
       winner = otherPlayer.color;
       room.gameState.isGameOver = true;
@@ -238,6 +274,173 @@ export function handlePlayerDisconnect(
       playerColor: player.color,
       playerName: player.name,
       winner,
+    },
+  };
+}
+
+export function offerDraw(playerId: string): SessionResult<DrawOfferOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+  room.gameState = {
+    ...room.gameState,
+    drawOfferedBy: player.color,
+  };
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      playerColor: player.color,
+    },
+  };
+}
+
+export function acceptDraw(
+  playerId: string,
+): SessionResult<DrawResolutionOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+
+  if (
+    !room.gameState.drawOfferedBy ||
+    room.gameState.drawOfferedBy === player.color
+  ) {
+    return { ok: false, code: "INVALID_MOVE", roomState: room.gameState };
+  }
+
+  room.gameState = {
+    ...room.gameState,
+    isGameOver: true,
+    winner: "draw",
+    drawOfferedBy: null,
+  };
+  room.status = "finished";
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      playerColor: player.color,
+      gameState: room.gameState,
+    },
+  };
+}
+
+export function declineDraw(
+  playerId: string,
+): SessionResult<DrawResolutionOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+
+  room.gameState = {
+    ...room.gameState,
+    drawOfferedBy: null,
+  };
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      playerColor: player.color,
+      gameState: room.gameState,
+    },
+  };
+}
+
+export function offerRematch(
+  playerId: string,
+): SessionResult<RematchOfferOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+  room.gameState = {
+    ...room.gameState,
+    rematchOfferedBy: player.color,
+  };
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      playerColor: player.color,
+    },
+  };
+}
+
+export function acceptRematch(
+  playerId: string,
+): SessionResult<RematchAcceptedOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+
+  if (
+    !room.gameState.rematchOfferedBy ||
+    room.gameState.rematchOfferedBy === player.color
+  ) {
+    return { ok: false, code: "INVALID_MOVE", roomState: room.gameState };
+  }
+
+  room.gameState = createInitialGameState();
+  room.status = room.players.length === 2 ? "active" : "waiting";
+
+  const blackPlayer = room.players.find(
+    (candidate) => candidate.color === "black",
+  );
+  const whitePlayer = room.players.find(
+    (candidate) => candidate.color === "white",
+  );
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      gameState: room.gameState,
+      players: {
+        black: blackPlayer?.name || "Player 1",
+        white: whitePlayer?.name || "Player 2",
+      },
+    },
+  };
+}
+
+export function declineRematch(
+  playerId: string,
+): SessionResult<RematchDeclinedOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+  room.gameState = {
+    ...room.gameState,
+    rematchOfferedBy: null,
+  };
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      playerColor: player.color,
     },
   };
 }

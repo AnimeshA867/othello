@@ -13,8 +13,14 @@ import {
 import { Player, RankSetType, isValidRankSetType } from "../shared/gameLogic";
 import http from "http";
 import {
+  acceptDraw,
+  acceptRematch,
   applyMoveIntent,
+  declineDraw,
+  declineRematch,
   handlePlayerDisconnect,
+  offerDraw,
+  offerRematch,
   restartSession,
 } from "../network/server/sessionService";
 
@@ -490,240 +496,103 @@ class EnhancedOthelloWebSocketServer {
   }
 
   private offerDraw(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-    const room = getRoomByPlayerId(playerId);
-
-    if (!room) {
-      this.sendError(ws, "Room not found");
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = offerDraw(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    const roomId = room.roomId;
-    console.log(
-      `[SERVER] Draw offer from player ${playerId} in room ${roomId}`,
-    );
-
-    if (!roomId) {
-      console.log("[SERVER] No room ID found for player offering draw");
-      return;
-    }
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) {
-      console.log("[SERVER] Player not found in room for draw offer");
-      return;
-    }
-
-    console.log(`[SERVER] Setting drawOfferedBy to ${player.color}`);
-
-    // Set a flag in the game state
-    room.gameState = {
-      ...room.gameState,
-      drawOfferedBy: player.color,
-    };
-
-    // Broadcast the draw offer to all players
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "draw_offered",
-      player: player.color,
+      player: result.data.playerColor,
     });
-
-    console.log(`[SERVER] Draw offer broadcast to room ${roomId}`);
   }
 
   private acceptDraw(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-
-    const room = getRoomByPlayerId(playerId);
-    if (!room) {
-      this.sendError(ws, "Room not found");
-      return;
-    }
-    const roomId = room.roomId;
-
-    if (!roomId) return;
-
-    if (!room) return;
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) return;
-
-    // Verify there's an active draw offer and it wasn't made by this player
-    if (
-      !room.gameState.drawOfferedBy ||
-      room.gameState.drawOfferedBy === player.color
-    ) {
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = acceptDraw(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    // End the game in a draw
-    room.gameState = {
-      ...room.gameState,
-      isGameOver: true,
-      winner: "draw",
-      drawOfferedBy: null,
-    };
-
-    // Broadcast the game over message
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "game_over",
       winner: "draw",
     });
 
-    // Broadcast the final game state
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "game_state",
-      gameState: room.gameState,
+      gameState: result.data.gameState,
     });
   }
 
   private declineDraw(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-    const room = getRoomByPlayerId(playerId);
-    if (!room) {
-      this.sendError(ws, "Room not found");
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = declineDraw(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    const roomId = room.roomId;
-    if (!roomId) return;
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) return;
-
-    // Remove the draw offer
-    room.gameState = {
-      ...room.gameState,
-      drawOfferedBy: null,
-    };
-
-    // Broadcast the decline
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "draw_declined",
-      player: player.color,
+      player: result.data.playerColor,
     });
   }
 
   private offerRematch(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-    const room = getRoomByPlayerId(playerId);
-
-    if (!room) {
-      this.sendError(ws, "Room not found");
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = offerRematch(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    const roomId = room.roomId;
-    console.log(
-      `[SERVER] Rematch offer from player ${playerId} in room ${roomId}`,
-    );
-
-    if (!roomId) {
-      console.log("[SERVER] No room ID found for player offering rematch");
-      return;
-    }
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) {
-      console.log("[SERVER] Player not found in room for rematch offer");
-      return;
-    }
-
-    console.log(`[SERVER] Setting rematchOfferedBy to ${player.color}`);
-
-    // Set a flag in the game state
-    room.gameState = {
-      ...room.gameState,
-      rematchOfferedBy: player.color,
-    };
-
-    // Broadcast the rematch offer to all players
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "rematch_offered",
-      player: player.color,
+      player: result.data.playerColor,
     });
-
-    console.log(`[SERVER] Rematch offer broadcast to room ${roomId}`);
   }
 
   private acceptRematch(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-
-    const room = getRoomByPlayerId(playerId);
-    if (!room) {
-      this.sendError(ws, "Room not found");
-      return;
-    }
-    const roomId = room.roomId;
-
-    if (!roomId) return;
-
-    if (!room) return;
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) return;
-
-    // Verify there's an active rematch offer and it wasn't made by this player
-    if (
-      !room.gameState.rematchOfferedBy ||
-      room.gameState.rematchOfferedBy === player.color
-    ) {
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = acceptRematch(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    // Reset the game state
-    room.gameState = createInitialGameState();
-    room.status = "active";
-
-    // Broadcast the game restart
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "game_restarted",
+      gameId: result.data.gameState.gameId,
+      revision: result.data.gameState.revision,
     });
 
-    // Find the other player
-    const blackPlayer = room.players.find((p) => p.color === "black");
-
-    // Notify both players that the game is ready
-    this.broadcastToRoom(room.roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "game_ready",
-      roomId: room.roomId,
-      players: {
-        black: blackPlayer?.name || "Player 1",
-        white: player.name || "Player 2",
-      },
+      roomId: result.data.roomId,
+      players: result.data.players,
     });
 
-    // Broadcast the new game state
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "game_state",
-      gameState: room.gameState,
+      gameState: result.data.gameState,
     });
   }
 
   private declineRematch(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-    const room = getRoomByPlayerId(playerId);
-    if (!room) {
-      this.sendError(ws, "Room not found");
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = declineRematch(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    const roomId = room.roomId;
-    if (!roomId) return;
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) return;
-
-    // Remove the rematch offer
-    room.gameState = {
-      ...room.gameState,
-      rematchOfferedBy: null,
-    };
-
-    // Broadcast the decline
-    this.broadcastToRoom(roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "rematch_declined",
-      player: player.color,
+      player: result.data.playerColor,
     });
   }
 

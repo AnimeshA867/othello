@@ -10,12 +10,14 @@ import {
 
 type Message =
   | { type: "game_state"; gameState: Record<string, unknown> }
-  | { type: "turn_passed" }
+  | { type: "turn_passed"; [key: string]: unknown }
   | { type: "stale_state"; gameState: Record<string, unknown> }
   | { type: string; [key: string]: unknown };
 
 export function useMatchSessionSync(
-  onMessage: (callback: (message: Message) => void) => () => void,
+  onMessage: (
+    callback: (message: { type: string; [key: string]: unknown }) => void,
+  ) => () => void,
 ) {
   const dispatch = useAppDispatch();
 
@@ -23,14 +25,22 @@ export function useMatchSessionSync(
     const unsubscribe = onMessage((message) => {
       switch (message.type) {
         case "game_state":
-          dispatch(applyAuthoritativeSnapshot(message.gameState));
+          dispatch(
+            applyAuthoritativeSnapshot(
+              message.gameState as Record<string, unknown>,
+            ),
+          );
           break;
         case "turn_passed":
           dispatch(markTurnPassed());
           break;
         case "stale_state":
           dispatch(markStale());
-          dispatch(applyAuthoritativeSnapshot(message.gameState));
+          dispatch(
+            applyAuthoritativeSnapshot(
+              message.gameState as Record<string, unknown>,
+            ),
+          );
           break;
       }
     });

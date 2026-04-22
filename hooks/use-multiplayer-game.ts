@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useWebSocketGame, type WebSocketMessage } from "./use-websocket-game";
 import type { GameState, Player } from "@/lib/othello-game";
 import { getValidMoves } from "@/shared/gameLogic";
+import { useMatchSessionSync } from "@/ui/hooks/useMatchSessionSync";
 
 interface MultiplayerGameState extends GameState {
   localPlayer: Player | null;
@@ -16,7 +17,6 @@ interface MultiplayerGameState extends GameState {
 export function useMultiplayerGame() {
   const {
     websocketState,
-    sendMessage,
     createRoom,
     joinRoom,
     makeMove: sendMove,
@@ -49,6 +49,9 @@ export function useMultiplayerGame() {
     undosRemaining: 0,
     drawOfferedBy: null,
   });
+
+  useMatchSessionSync(onMessage);
+
   // Register message handlers
   useEffect(() => {
     const unsubscribe = onMessage((message: WebSocketMessage) => {
@@ -277,10 +280,12 @@ export function useMultiplayerGame() {
       return true;
     },
     [
-      gameState.localPlayer,
       gameState.currentPlayer,
+      gameState.gameId,
+      gameState.revision,
       gameState.validMoves,
       sendMove,
+      websocketState.playerRole,
     ],
   );
 
