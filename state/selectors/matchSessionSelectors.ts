@@ -8,6 +8,17 @@ export const selectAuthoritativeTurn = (state: RootState) =>
 export const selectAuthoritativeBoard = (state: RootState) =>
   state.matchSession.board;
 
+export const selectAuthoritativeScores = (state: RootState) => ({
+  blackScore: state.matchSession.blackScore,
+  whiteScore: state.matchSession.whiteScore,
+});
+
+export const selectAuthoritativeValidMoves = (state: RootState) =>
+  state.matchSession.validMoves;
+
+export const selectAuthoritativeLastMove = (state: RootState) =>
+  state.matchSession.lastMove;
+
 export const selectSyncStatus = (state: RootState) =>
   state.matchSession.syncStatus;
 

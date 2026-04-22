@@ -21,6 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@stackframe/stack";
 import { useAppSelector, useAppDispatch } from "@/lib/redux/hooks";
 import {
+  selectAuthoritativeLastMove,
+  selectAuthoritativeScores,
+  selectAuthoritativeValidMoves,
+  selectMatchSession,
+} from "@/state/selectors/matchSessionSelectors";
+import {
   setShowGameOverDialog,
   setShowResignDialog,
   setShowDrawOfferDialog,
@@ -54,17 +60,44 @@ export default function FriendGamePage() {
 
   // Redux state
   const showGameOverDialog = useAppSelector(
-    (state: any) => state.ui.showGameOverDialog
+    (state: any) => state.ui.showGameOverDialog,
   );
   const showDrawOfferDialog = useAppSelector(
-    (state: any) => state.ui.showDrawOfferDialog
+    (state: any) => state.ui.showDrawOfferDialog,
   );
   const showRematchOfferDialog = useAppSelector(
-    (state: any) => state.ui.showRematchOfferDialog
+    (state: any) => state.ui.showRematchOfferDialog,
   );
   const showResignDialog = useAppSelector(
-    (state: any) => state.ui.showResignDialog
+    (state: any) => state.ui.showResignDialog,
   );
+  const matchSession = useAppSelector(selectMatchSession);
+  const authoritativeScores = useAppSelector(selectAuthoritativeScores);
+  const authoritativeValidMoves = useAppSelector(selectAuthoritativeValidMoves);
+  const authoritativeLastMove = useAppSelector(selectAuthoritativeLastMove);
+
+  const boardForRender =
+    matchSession.syncStatus === "synced" && matchSession.board.length === 8
+      ? matchSession.board
+      : gameState.board;
+  const currentPlayerForRender =
+    matchSession.syncStatus === "synced"
+      ? matchSession.currentPlayer
+      : (gameState.currentPlayer as "black" | "white");
+  const isGameOverForRender =
+    gameState.isGameOver || matchSession.phase === "game_over";
+  const scoresForRender =
+    matchSession.syncStatus === "synced"
+      ? authoritativeScores
+      : { blackScore: gameState.blackScore, whiteScore: gameState.whiteScore };
+  const validMovesForRender =
+    matchSession.syncStatus === "synced"
+      ? authoritativeValidMoves
+      : gameState.validMoves;
+  const lastMoveForRender =
+    matchSession.syncStatus === "synced"
+      ? authoritativeLastMove
+      : gameState.lastMove;
 
   const gameStartTimeRef = useRef<number>(Date.now());
   const gameRecordedRef = useRef<boolean>(false);
@@ -90,7 +123,7 @@ export default function FriendGamePage() {
 
   // Track move count for abandon logic
   useEffect(() => {
-    const totalMoves = gameState.board
+    const totalMoves = boardForRender
       .flat()
       .filter((cell) => cell !== null).length;
     setMoveCount(totalMoves);
@@ -98,7 +131,7 @@ export default function FriendGamePage() {
     // Can abandon if at most 1 move per player (total pieces <= 6)
     const abandonAllowed = totalMoves <= 6;
     setCanAbandon(abandonAllowed);
-  }, [gameState.board]);
+  }, [boardForRender]);
 
   // Set game type on mount
   useEffect(() => {
@@ -121,7 +154,7 @@ export default function FriendGamePage() {
         const myRole = websocketState.playerRole;
         const winner = gameState.winner;
         const duration = Math.floor(
-          (Date.now() - gameStartTimeRef.current) / 1000
+          (Date.now() - gameStartTimeRef.current) / 1000,
         );
 
         let won = false;
@@ -134,7 +167,7 @@ export default function FriendGamePage() {
             won,
             draw: winner === "draw",
             mode: "friend",
-          })
+          }),
         );
 
         fetch("/api/games/record", {
@@ -304,7 +337,7 @@ export default function FriendGamePage() {
       setIsRoomCreator(false); // Mark as joiner
       joinGameRoom(roomId, playerName);
     },
-    [user, joinGameRoom]
+    [user, joinGameRoom],
   );
 
   // Handle making a move
@@ -312,7 +345,7 @@ export default function FriendGamePage() {
     async (row: number, col: number) => {
       return await makeMove(row, col);
     },
-    [makeMove]
+    [makeMove],
   );
 
   // Handle game restart - offer rematch instead of immediately restarting
@@ -446,7 +479,7 @@ export default function FriendGamePage() {
     (message: string) => {
       sendChatMessage(message, playerName);
     },
-    [sendChatMessage, playerName]
+    [sendChatMessage, playerName],
   );
 
   return (
@@ -548,21 +581,21 @@ export default function FriendGamePage() {
             </div>
 
             <OthelloBoard
-              board={gameState.board}
+              board={boardForRender}
               validMoves={
-                websocketState.playerRole === gameState.currentPlayer &&
-                !gameState.isGameOver &&
+                websocketState.playerRole === currentPlayerForRender &&
+                !isGameOverForRender &&
                 !isGameEnding
-                  ? gameState.validMoves
+                  ? validMovesForRender
                   : []
               }
-              lastMove={gameState.lastMove}
-              currentPlayer={gameState.currentPlayer}
+              lastMove={lastMoveForRender}
+              currentPlayer={currentPlayerForRender}
               onMove={handleMove}
               disabled={
-                gameState.isGameOver ||
+                isGameOverForRender ||
                 gameState.isWaitingForPlayer ||
-                websocketState.playerRole !== gameState.currentPlayer ||
+                websocketState.playerRole !== currentPlayerForRender ||
                 isGameEnding
               }
             />
@@ -572,14 +605,14 @@ export default function FriendGamePage() {
         {/* Sidebar */}
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
-            currentPlayer={gameState.currentPlayer as "black" | "white"}
+            currentPlayer={currentPlayerForRender}
             playerColor={websocketState.playerRole as "black" | "white"}
-            blackScore={gameState.blackScore}
-            whiteScore={gameState.whiteScore}
+            blackScore={scoresForRender.blackScore}
+            whiteScore={scoresForRender.whiteScore}
             playerName={playerName}
             opponentName={opponentName}
             gameMode="friend"
-            gameStatus={gameState.isGameOver ? "finished" : "playing"}
+            gameStatus={isGameOverForRender ? "finished" : "playing"}
             onResign={handleResign}
             onDraw={handleOfferDraw}
             roomId={gameState.roomId ?? undefined}
@@ -591,7 +624,7 @@ export default function FriendGamePage() {
           {/* Action Buttons */}
           {websocketState.isConnected &&
             !gameState.isWaitingForPlayer &&
-            !gameState.isGameOver && (
+            !isGameOverForRender && (
               <div className="space-y-2 mt-4">
                 {/* <Button
                   variant="outline"
@@ -726,8 +759,8 @@ export default function FriendGamePage() {
               {gameState.winner === "draw"
                 ? "The game ended in a draw!"
                 : gameState.winner === websocketState.playerRole
-                ? "Congratulations! You won the game!"
-                : "You lost this game. Better luck next time!"}
+                  ? "Congratulations! You won the game!"
+                  : "You lost this game. Better luck next time!"}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-between mt-4">
@@ -821,7 +854,7 @@ export default function FriendGamePage() {
             gameState.chatMessages
               ?.filter(
                 (msg): msg is typeof msg & { sender: "black" | "white" } =>
-                  msg.sender === "black" || msg.sender === "white"
+                  msg.sender === "black" || msg.sender === "white",
               )
               .map((msg) => ({
                 ...msg,

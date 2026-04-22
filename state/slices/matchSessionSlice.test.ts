@@ -18,6 +18,9 @@ const baseState: MatchSessionState = {
   board: Array(8)
     .fill(null)
     .map(() => Array(8).fill(null)),
+  blackScore: 2,
+  whiteScore: 2,
+  lastMove: null,
   validMoves: [],
   syncStatus: "synced",
 };
@@ -31,6 +34,9 @@ describe("matchSessionSlice", () => {
         revision: 3,
         currentPlayer: "white",
         passCount: 1,
+        blackScore: 7,
+        whiteScore: 4,
+        lastMove: { row: 2, col: 3 },
         isGameOver: false,
       }),
     );
@@ -39,6 +45,9 @@ describe("matchSessionSlice", () => {
     expect(next.revision).toBe(3);
     expect(next.currentPlayer).toBe("white");
     expect(next.passCount).toBe(1);
+    expect(next.blackScore).toBe(7);
+    expect(next.whiteScore).toBe(4);
+    expect(next.lastMove).toEqual({ row: 2, col: 3 });
     expect(next.phase).toBe("active_turn");
   });
 

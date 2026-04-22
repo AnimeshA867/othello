@@ -16,6 +16,9 @@ export interface MatchSessionState {
   passCount: number;
   winner: "black" | "white" | "draw" | null;
   board: ("black" | "white" | null)[][];
+  blackScore: number;
+  whiteScore: number;
+  lastMove: { row: number; col: number } | null;
   validMoves: Array<{ row: number; col: number }>;
   syncStatus: "synced" | "stale";
 }
@@ -32,6 +35,9 @@ const initialState: MatchSessionState = {
   passCount: 0,
   winner: null,
   board: emptyBoard,
+  blackScore: 2,
+  whiteScore: 2,
+  lastMove: null,
   validMoves: [],
   syncStatus: "synced",
 };
@@ -43,6 +49,9 @@ interface AuthoritativeSnapshot {
   passCount?: number;
   winner?: "black" | "white" | "draw" | null;
   board?: ("black" | "white" | null)[][];
+  blackScore?: number;
+  whiteScore?: number;
+  lastMove?: { row: number; col: number } | null;
   validMoves?: Array<{ row: number; col: number }>;
   isGameOver?: boolean;
 }
@@ -62,6 +71,9 @@ const matchSessionSlice = createSlice({
       state.passCount = payload.passCount ?? state.passCount;
       state.winner = payload.winner ?? state.winner;
       state.board = payload.board ?? state.board;
+      state.blackScore = payload.blackScore ?? state.blackScore;
+      state.whiteScore = payload.whiteScore ?? state.whiteScore;
+      state.lastMove = payload.lastMove ?? state.lastMove;
       state.validMoves = payload.validMoves ?? state.validMoves;
       state.phase = payload.isGameOver
         ? "game_over"
