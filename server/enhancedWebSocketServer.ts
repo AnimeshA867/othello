@@ -29,7 +29,7 @@ import type { ClientIntent } from "../network/protocol/game-events";
 
 interface UnknownMessage {
   type: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 type WebSocketMessage = ClientIntent | UnknownMessage;

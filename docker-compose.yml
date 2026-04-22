@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: backend-dev
+      target: prod
     ports:
       - "3003:3003"
     environment:

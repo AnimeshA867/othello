@@ -34,6 +34,10 @@ import {
 } from "@/lib/redux/slices/uiSlice";
 import { incrementGameStats } from "@/lib/redux/slices/userSlice";
 import { setGameType } from "@/lib/redux/slices/gameSlice";
+import {
+  getFriendGameOverDialogCopy,
+  getFriendGameRenderState,
+} from "./view-state";
 
 export default function FriendGamePage() {
   const {
@@ -76,28 +80,21 @@ export default function FriendGamePage() {
   const authoritativeValidMoves = useAppSelector(selectAuthoritativeValidMoves);
   const authoritativeLastMove = useAppSelector(selectAuthoritativeLastMove);
 
-  const boardForRender =
-    matchSession.syncStatus === "synced" && matchSession.board.length === 8
-      ? matchSession.board
-      : gameState.board;
-  const currentPlayerForRender =
-    matchSession.syncStatus === "synced"
-      ? matchSession.currentPlayer
-      : (gameState.currentPlayer as "black" | "white");
-  const isGameOverForRender =
-    gameState.isGameOver || matchSession.phase === "game_over";
-  const scoresForRender =
-    matchSession.syncStatus === "synced"
-      ? authoritativeScores
-      : { blackScore: gameState.blackScore, whiteScore: gameState.whiteScore };
-  const validMovesForRender =
-    matchSession.syncStatus === "synced"
-      ? authoritativeValidMoves
-      : gameState.validMoves;
-  const lastMoveForRender =
-    matchSession.syncStatus === "synced"
-      ? authoritativeLastMove
-      : gameState.lastMove;
+  const {
+    boardForRender,
+    currentPlayerForRender,
+    isGameOverForRender,
+    winnerForRender,
+    scoresForRender,
+    validMovesForRender,
+    lastMoveForRender,
+  } = getFriendGameRenderState({
+    matchSession,
+    gameState,
+    authoritativeScores,
+    authoritativeValidMoves,
+    authoritativeLastMove,
+  });
 
   const gameStartTimeRef = useRef<number>(Date.now());
   const gameRecordedRef = useRef<boolean>(false);
@@ -749,18 +746,17 @@ export default function FriendGamePage() {
 
       {/* Game Over Dialog */}
       <Dialog
-        open={showGameOverDialog && gameState.isGameOver}
+        open={showGameOverDialog && isGameOverForRender}
         onOpenChange={(open) => dispatch(setShowGameOverDialog(open))}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
             <DialogDescription>
-              {gameState.winner === "draw"
-                ? "The game ended in a draw!"
-                : gameState.winner === websocketState.playerRole
-                  ? "Congratulations! You won the game!"
-                  : "You lost this game. Better luck next time!"}
+              {getFriendGameOverDialogCopy(
+                winnerForRender,
+                websocketState.playerRole,
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-between mt-4">

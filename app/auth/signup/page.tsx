@@ -1,6 +1,6 @@
 "use client";
 
-import { useStackApp, useUser } from "@stackframe/stack";
+import { useStackApp, useUser, CredentialSignUp } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import {
@@ -96,13 +96,9 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <Button
-            onClick={() => app.redirectToSignUp()}
-            className="w-full"
-            size="lg"
-          >
-            Sign Up with Email
-          </Button>
+          <div className="mt-4">
+            <CredentialSignUp />
+          </div>
 
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}

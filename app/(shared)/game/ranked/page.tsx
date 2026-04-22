@@ -25,6 +25,12 @@ import { useRouter } from "next/navigation";
 import { getRandomBotName } from "@/lib/bot-names";
 import { useAppSelector, useAppDispatch } from "@/lib/redux/hooks";
 import {
+  selectAuthoritativeLastMove,
+  selectAuthoritativeScores,
+  selectAuthoritativeValidMoves,
+  selectMatchSession,
+} from "@/state/selectors/matchSessionSelectors";
+import {
   setGameMode as setReduxGameMode,
   setGameType,
   setDifficulty,
@@ -55,6 +61,10 @@ import {
   setShowAbandonDialog,
 } from "@/lib/redux/slices/uiSlice";
 import { TutorialDialog } from "@/components/tutorial-dialog";
+import {
+  getRankedGameOverDialogCopy,
+  getRankedGameRenderState,
+} from "./view-state";
 
 // ELO to difficulty mapping
 function eloDifficultyMap(elo: number): Difficulty {
@@ -126,6 +136,10 @@ export default function RankedGamePage() {
   const hasCompletedTutorial = useAppSelector(
     (state: any) => state.user.hasCompletedTutorial
   );
+  const matchSession = useAppSelector(selectMatchSession);
+  const authoritativeScores = useAppSelector(selectAuthoritativeScores);
+  const authoritativeValidMoves = useAppSelector(selectAuthoritativeValidMoves);
+  const authoritativeLastMove = useAppSelector(selectAuthoritativeLastMove);
 
   // Local component state (UI-only)
   const [moveCount, setMoveCount] = useState(0);
@@ -172,6 +186,22 @@ export default function RankedGamePage() {
 
   // Select the active game state
   const gameState = gameMode === "multiplayer" ? mpGameState : aiGameState;
+  const {
+    boardForRender,
+    currentPlayerForRender,
+    isGameOverForRender,
+    winnerForRender,
+    scoresForRender,
+    validMovesForRender,
+    lastMoveForRender,
+  } = getRankedGameRenderState({
+    gameMode: (gameMode ?? "ai") as GameMode,
+    matchSession,
+    gameState,
+    authoritativeScores,
+    authoritativeValidMoves,
+    authoritativeLastMove,
+  });
 
   // Track move count
   useEffect(() => {
@@ -1026,16 +1056,16 @@ export default function RankedGamePage() {
   }
 
   const isSearching =
-    !gameState.isGameOver &&
+    !isGameOverForRender &&
     moveCount === 0 &&
     (websocketState.isWaitingForPlayer ||
       (!websocketState.isConnected && gameMode === "ai" && !botName));
   const isDisabled =
-    gameState.isGameOver ||
+    isGameOverForRender ||
     (gameMode === "ai" && isAiThinking) ||
     (gameMode === "multiplayer" &&
       (mpGameState.isWaitingForPlayer ||
-        websocketState.playerRole !== gameState.currentPlayer)) ||
+        websocketState.playerRole !== currentPlayerForRender)) ||
     isSearching ||
     isGameEnding;
 
@@ -1187,17 +1217,17 @@ export default function RankedGamePage() {
             </div>
 
             <OthelloBoard
-              board={gameState.board}
+              board={boardForRender}
               validMoves={
                 !isDisabled &&
                 ((gameMode === "multiplayer" &&
-                  websocketState.playerRole === gameState.currentPlayer) ||
+                  websocketState.playerRole === currentPlayerForRender) ||
                   gameMode === "ai")
-                  ? gameState.validMoves
+                  ? validMovesForRender
                   : []
               }
-              lastMove={gameState.lastMove}
-              currentPlayer={gameState.currentPlayer}
+              lastMove={lastMoveForRender}
+              currentPlayer={currentPlayerForRender}
               onMove={handleMove}
               disabled={isDisabled}
             />
@@ -1206,16 +1236,16 @@ export default function RankedGamePage() {
 
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
-            currentPlayer={gameState.currentPlayer as "black" | "white"}
+            currentPlayer={currentPlayerForRender}
             playerColor={websocketState.playerRole as "black" | "white"}
-            blackScore={gameState.blackScore}
-            whiteScore={gameState.whiteScore}
+            blackScore={scoresForRender.blackScore}
+            whiteScore={scoresForRender.whiteScore}
             playerName={
               user?.displayName || user?.primaryEmail?.split("@")[0] || "You"
             }
             opponentName={getOpponentName()}
             gameMode="ranked"
-            gameStatus={gameState.isGameOver ? "finished" : "playing"}
+            gameStatus={isGameOverForRender ? "finished" : "playing"}
             onResign={handleResign}
             onDraw={handleOfferDraw}
             onRestart={handleRestart}
@@ -1223,7 +1253,7 @@ export default function RankedGamePage() {
             showAbandon={canAbandon}
           />
 
-          {!isSearching && !gameState.isGameOver && (
+          {!isSearching && !isGameOverForRender && (
             <div className="space-y-2 mt-4">
               {/* <Button
                 variant="outline"
@@ -1248,7 +1278,7 @@ export default function RankedGamePage() {
           )}
 
           {eloChange !== null &&
-            gameState.isGameOver &&
+            isGameOverForRender &&
             user &&
             gameMode === "ai" && (
               <div
@@ -1305,20 +1335,19 @@ export default function RankedGamePage() {
 
       {/* Game Over Dialog */}
       <Dialog
-        open={showGameOverDialog && gameState.isGameOver}
+        open={showGameOverDialog && isGameOverForRender}
         onOpenChange={(open) => dispatch(setShowGameOverDialog(open))}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
             <DialogDescription>
-              {gameState.winner === "draw"
-                ? "The game ended in a draw!"
-                : (gameMode === "multiplayer" &&
-                    gameState.winner === websocketState.playerRole) ||
-                  (gameMode === "ai" && gameState.winner === "black")
-                ? `Congratulations! You defeated ${getOpponentName()}!`
-                : `${getOpponentName()} won this game. Better luck next time!`}
+              {getRankedGameOverDialogCopy({
+                winnerForRender,
+                gameMode: (gameMode ?? "ai") as GameMode,
+                playerRole: websocketState.playerRole,
+                opponentName: getOpponentName(),
+              })}
             </DialogDescription>
           </DialogHeader>
           {user && eloChange !== null && gameMode === "ai" && (

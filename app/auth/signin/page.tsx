@@ -1,6 +1,6 @@
 "use client";
 
-import { useStackApp, useUser } from "@stackframe/stack";
+import { useStackApp, useUser, CredentialSignIn } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import {
@@ -96,13 +96,9 @@ export default function SignInPage() {
             </div>
           </div>
 
-          <Button
-            onClick={() => app.redirectToSignIn()}
-            className="w-full"
-            size="lg"
-          >
-            Sign In with Email
-          </Button>
+          <div className="mt-4">
+            <CredentialSignIn />
+          </div>
 
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}

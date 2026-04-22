@@ -4,8 +4,7 @@ Last updated: 2026-04-22
 
 ## TODO
 
-- [ ] Shift friend screen end-of-game dialog winner/status copy to selector-backed state path.
-- [ ] Add a selector-driven UI test for friend screen board + score rendering fallback behavior.
+- [x] Expand selector-backed friend view-state extraction to ranked screen render fallback logic.
 
 ## Completed
 
@@ -27,6 +26,8 @@ Last updated: 2026-04-22
 - [x] Replaced ad-hoc websocket unions with shared protocol types in `network/protocol/game-events.ts` and transport hooks/server.
 - [x] Shifted one game screen (`friend/page.tsx`) to consume `matchSession` selector state for board/turn rendering.
 - [x] Extended friend screen selector consumption to authoritative scores, valid moves, and last move with local fallback.
+- [x] Shifted friend end-of-game dialog winner/status copy to selector-backed render state.
+- [x] Added selector-driven friend view-state tests for board/score fallback behavior.
 - [x] Added PWA baseline (`public/sw.js`, registration component, manifest/cache header updates).
 - [x] Updated backend Docker/dev compose flow for multiplayer backend layering.
 
@@ -46,3 +47,5 @@ Last updated: 2026-04-22
 - 2026-04-22: Migrated `app/(shared)/game/friend/page.tsx` board/turn rendering to `matchSession` selectors with safe hook-state fallback; marked final TODO complete.
 - 2026-04-22: Re-ran regression tests after friend screen migration; suite remains green (2 files, 9 tests).
 - 2026-04-22: Expanded `matchSession` model/selectors and moved friend screen score/validMove/lastMove rendering to selector-backed path.
+- 2026-04-22: Extracted friend render-state helpers, moved game-over dialog copy to selector-backed state, and added friend view-state fallback tests.
+- 2026-04-22: Expanded selector-backed view-state extraction to ranked screen render logic and verified ranked view-state fallback tests; marked final TODO complete.
