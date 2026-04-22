@@ -4,11 +4,8 @@ Last updated: 2026-04-22
 
 ## TODO
 
-- [ ] Wire the state bridge hook into ranked/unified multiplayer hooks.
-- [ ] Finish extracting remaining session transitions (resign/chat abstractions) from websocket transport.
-- [ ] Add server-focused tests for stale revision/game rejection, pass-turn emission, draw/rematch lifecycle, and restart invalidation.
-- [ ] Add reducer tests for `matchSessionSlice` state transitions.
-- [ ] Add brief architecture docs for `core/`, `network/`, `state/`, `ui/` boundaries and migration rules.
+- [ ] Replace ad-hoc websocket event unions with shared protocol types from `network/protocol/game-events.ts`.
+- [ ] Incrementally shift UI consumption from local hook state to `matchSession` selectors in one game screen.
 
 ## Completed
 
@@ -20,6 +17,13 @@ Last updated: 2026-04-22
 - [x] Added `matchSessionSlice` + selectors and registered it in Redux store.
 - [x] Added `useMatchSessionSync` hook for authoritative event-to-state bridging.
 - [x] Wired `use-multiplayer-game` to `useMatchSessionSync` for live authoritative state bridge updates.
+- [x] Wired ranked and unified multiplayer hooks to `useMatchSessionSync` for centralized authoritative session sync.
+- [x] Extracted resign/chat session concerns into `sessionService` and removed direct websocket handler state mutations.
+- [x] Added explicit layered boundary and migration conventions to architecture docs.
+- [x] Added Vitest test harness (`vitest.config.ts`) and `npm` test scripts.
+- [x] Added session service tests for stale state rejection, restart invalidation, draw lifecycle, and rematch lifecycle.
+- [x] Added session service tests for resign and chat-context resolution paths.
+- [x] Added reducer tests for `matchSessionSlice` transitions.
 - [x] Added PWA baseline (`public/sw.js`, registration component, manifest/cache header updates).
 - [x] Updated backend Docker/dev compose flow for multiplayer backend layering.
 
@@ -28,3 +32,9 @@ Last updated: 2026-04-22
 - 2026-04-22: Created tracker and captured current completed work + next queue.
 - 2026-04-22: Connected `use-multiplayer-game` to state bridge (`useMatchSessionSync`) and removed unsafe cast.
 - 2026-04-22: Resolved hook lint issues after bridge wiring (unused imports/values and callback dependencies).
+- 2026-04-22: Connected ranked + unified multiplayer hooks to `useMatchSessionSync`; marked state-bridge wiring TODO complete.
+- 2026-04-22: Delegated resign + chat context handling to `network/server/sessionService`; marked transport extraction TODO complete.
+- 2026-04-22: Expanded `docs/architecture.md` with layered boundaries, migration rules, and current status; marked architecture-docs TODO complete.
+- 2026-04-22: Added Vitest setup + core session/reducer tests; marked testing TODOs complete.
+- 2026-04-22: Isolated Vitest from Next PostCSS config in `vitest.config.ts` and verified `bun run test` passes (2 files, 7 tests).
+- 2026-04-22: Added resign/chat session-service tests and updated next-phase TODO queue.

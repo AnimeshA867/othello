@@ -1,3 +1,44 @@
+# Layered Architecture (Migration Target)
+
+This project is migrating to a layered architecture with strict boundaries:
+
+## Layers
+
+- `core/`: Pure deterministic Othello domain logic.
+  - No React, browser APIs, WebSocket, persistence, or framework imports.
+  - Contains bitboard/matrix adapters and state machine transitions.
+
+- `network/`: Transport and session orchestration.
+  - Owns WebSocket protocol mapping and session transition services.
+  - May call `core/` transitions but must not re-implement game rules.
+
+- `state/`: Client-side bridge from authoritative network events to UI state.
+  - Reducers/selectors normalize snapshots and event deltas.
+  - No direct board-rule computation.
+
+- `ui/`: Presentation and interaction surfaces.
+  - Hooks/components dispatch intents and render selectors.
+  - No game-rule mutation and no protocol parsing.
+
+## Boundary Rules
+
+- `ui/` -> `state/` -> `network` intent path.
+- `network` -> `state/` event/snapshot path.
+- `core/` can be used by `network` and local/offline engines only.
+- `core/` must remain side-effect free and replay-safe.
+
+## Current Migration Status
+
+- Core transition flow is authoritative for move/restart/pass/game-over.
+- Session lifecycle handling is being moved from WebSocket handlers into `network/server/sessionService.ts`.
+- Match session bridge exists in `state/slices/matchSessionSlice.ts` and is wired into multiplayer hooks.
+
+## Coding Conventions During Migration
+
+- Add new behavior to `core/` and `network/` first, then adapt existing hooks.
+- Keep legacy hook state updates temporarily for compatibility, but prefer `state/` selectors for new UI paths.
+- Reject stale events using `gameId` + `revision` in authoritative handlers.
+
 # Othello Game Architecture
 
 This document provides a comprehensive overview of the architecture and design decisions of the Othello game application.

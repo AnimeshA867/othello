@@ -93,6 +93,19 @@ export interface RematchDeclinedOutcome {
   playerColor: "black" | "white";
 }
 
+export interface ResignOutcome {
+  roomId: string;
+  playerColor: "black" | "white";
+  winner: "black" | "white" | null;
+  gameState: GameState;
+}
+
+export interface ChatMessageContext {
+  roomId: string;
+  senderColor: "black" | "white";
+  senderName: string;
+}
+
 function getPlayerContext(playerId: string): SessionResult<{
   room: NonNullable<ReturnType<typeof getRoomByPlayerId>>;
   player: {
@@ -441,6 +454,54 @@ export function declineRematch(
     data: {
       roomId: room.roomId,
       playerColor: player.color,
+    },
+  };
+}
+
+export function resignGame(playerId: string): SessionResult<ResignOutcome> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+  const winner = player.color === "black" ? "white" : "black";
+
+  room.gameState = {
+    ...room.gameState,
+    isGameOver: true,
+    winner,
+  };
+  room.status = "finished";
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      playerColor: player.color,
+      winner,
+      gameState: room.gameState,
+    },
+  };
+}
+
+export function resolveChatContext(
+  playerId: string,
+  senderName?: string,
+): SessionResult<ChatMessageContext> {
+  const context = getPlayerContext(playerId);
+  if (!context.ok) {
+    return context;
+  }
+
+  const { room, player } = context.data;
+
+  return {
+    ok: true,
+    data: {
+      roomId: room.roomId,
+      senderColor: player.color,
+      senderName: senderName || player.name || "Anonymous",
     },
   };
 }

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useWebSocketGame, type WebSocketMessage } from "./use-websocket-game";
 import type { GameState, Player } from "@/lib/othello-game";
 import { getValidMoves, RankSetType } from "@/shared/gameLogic";
+import { useMatchSessionSync } from "@/ui/hooks/useMatchSessionSync";
 
 interface MultiplayerGameState extends GameState {
   localPlayer: Player | null;
@@ -85,6 +86,9 @@ export function useUnifiedMultiplayerGame() {
     rematchOfferedBy: null,
     chatMessages: [],
   });
+
+  useMatchSessionSync(onMessage);
+
   // Register message handlers
   useEffect(() => {
     const unsubscribe = onMessage((message: WebSocketMessage) => {
@@ -521,6 +525,8 @@ export function useRankedMultiplayerGame() {
     undosRemaining: 0,
     drawOfferedBy: null,
   });
+
+  useMatchSessionSync(onMessage);
 
   // Join random ranked game
   const joinRandomGame = useCallback(

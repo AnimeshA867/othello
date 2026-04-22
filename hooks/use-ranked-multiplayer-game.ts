@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useWebSocketGame, type WebSocketMessage } from "./use-websocket-game";
 import type { GameState, RankSetType } from "@/shared/gameLogic";
 import { getValidMoves } from "@/shared/gameLogic";
+import { useMatchSessionSync } from "@/ui/hooks/useMatchSessionSync";
 
 interface RankedMultiplayerGameState extends GameState {
   localPlayer: "black" | "white" | null;
@@ -54,6 +55,8 @@ export function useRankedMultiplayerGame() {
     undosRemaining: 0,
     drawOfferedBy: null,
   });
+
+  useMatchSessionSync(onMessage);
 
   // Join random ranked game
   const joinRandomGame = useCallback(

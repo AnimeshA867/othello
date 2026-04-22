@@ -21,6 +21,8 @@ import {
   handlePlayerDisconnect,
   offerDraw,
   offerRematch,
+  resignGame,
+  resolveChatContext,
   restartSession,
 } from "../network/server/sessionService";
 
@@ -478,20 +480,27 @@ class EnhancedOthelloWebSocketServer {
   }
 
   private resignGame(ws: WebSocket) {
-    const playerId = (ws as any).playerId;
-    const room = getRoomByPlayerId(playerId);
-
-    if (!room) {
-      this.sendError(ws, "Room not found");
+    const playerId = (ws as any).playerId as string | undefined;
+    const result = resignGame(playerId || "");
+    if (!result.ok) {
+      this.sendError(ws, result.code);
       return;
     }
 
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) return;
-
-    this.broadcastToRoom(room.roomId, {
+    this.broadcastToRoom(result.data.roomId, {
       type: "player_resigned",
-      player: player.color,
+      player: result.data.playerColor,
+    });
+
+    this.broadcastToRoom(result.data.roomId, {
+      type: "game_over",
+      winner: result.data.winner,
+      reason: "resign",
+    });
+
+    this.broadcastToRoom(result.data.roomId, {
+      type: "game_state",
+      gameState: result.data.gameState,
     });
   }
 
@@ -601,26 +610,19 @@ class EnhancedOthelloWebSocketServer {
     message: string,
     senderName?: string,
   ) {
-    const playerId = (ws as any).playerId;
-    const room = getRoomByPlayerId(playerId);
-
-    if (!room) {
-      this.sendError(ws, "Room not found");
-      return;
-    }
-
-    const player = room.players.find((p) => p.id === playerId);
-    if (!player) {
-      this.sendError(ws, "Player not found in room");
+    const playerId = (ws as any).playerId as string | undefined;
+    const context = resolveChatContext(playerId || "", senderName);
+    if (!context.ok) {
+      this.sendError(ws, context.code);
       return;
     }
 
     // Broadcast the chat message to all players in the room
-    this.broadcastToRoom(room.roomId, {
+    this.broadcastToRoom(context.data.roomId, {
       type: "chat_message",
       message: message,
-      sender: player.color,
-      senderName: senderName || player.name || "Anonymous",
+      sender: context.data.senderColor,
+      senderName: context.data.senderName,
       timestamp: Date.now(),
     });
   }
