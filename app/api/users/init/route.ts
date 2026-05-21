@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/lib/stack";
-import { prisma } from "@/lib/prisma";
+import { ensureUserExists } from "@/lib/ensure-user";
 
 /**
  * Initialize or get user in database
@@ -14,43 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user already exists
-    let dbUser = await prisma.user.findUnique({
-      where: { stackId: user.id },
-      include: {
-        profile: true,
-        gameStats: true,
-      },
-    });
-
-    // If user doesn't exist, create them
-    if (!dbUser) {
-      console.log(`Creating new user in database: ${user.id}`);
-
-      dbUser = await prisma.user.create({
-        data: {
-          stackId: user.id,
-          email: user.primaryEmail || "",
-          username:
-            user.displayName ||
-            user.primaryEmail?.split("@")[0] ||
-            `user_${Date.now()}`,
-          displayName: user.displayName || null,
-          profile: {
-            create: {},
-          },
-          gameStats: {
-            create: {},
-          },
-        },
-        include: {
-          profile: true,
-          gameStats: true,
-        },
-      });
-
-      console.log(`User created successfully: ${dbUser.username}`);
-    }
+    const dbUser = await ensureUserExists(user);
 
     return NextResponse.json({
       success: true,
@@ -67,7 +31,7 @@ export async function POST(request: NextRequest) {
     console.error("User initialization error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

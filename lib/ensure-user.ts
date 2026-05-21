@@ -62,21 +62,41 @@ export async function ensureUserExists(stackUser: StackUser) {
   });
 
   if (existingUser) {
+    let needsRefetch = false;
+
     if (!existingUser.profile) {
-      await prisma.userProfile.create({ data: { userId: existingUser.id } });
+      try {
+        await prisma.userProfile.create({ data: { userId: existingUser.id } });
+        needsRefetch = true;
+      } catch (error) {
+        // Profile might already exist but wasn't included in the first query (shouldn't happen)
+        // Proceed to refetch to get the latest state
+        needsRefetch = true;
+      }
     }
 
     if (!existingUser.gameStats) {
-      await prisma.gameStats.create({ data: { userId: existingUser.id } });
+      try {
+        await prisma.gameStats.create({ data: { userId: existingUser.id } });
+        needsRefetch = true;
+      } catch (error) {
+        // GameStats might already exist but wasn't included in the first query (shouldn't happen)
+        // Proceed to refetch to get the latest state
+        needsRefetch = true;
+      }
     }
 
-    return prisma.user.findUniqueOrThrow({
-      where: { stackId: stackUser.id },
-      include: {
-        profile: true,
-        gameStats: true,
-      },
-    });
+    if (needsRefetch) {
+      return prisma.user.findUniqueOrThrow({
+        where: { stackId: stackUser.id },
+        include: {
+          profile: true,
+          gameStats: true,
+        },
+      });
+    }
+
+    return existingUser;
   }
 
   const baseUsername = buildBaseUsername(stackUser);

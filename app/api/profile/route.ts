@@ -14,11 +14,19 @@ export async function GET(request: NextRequest) {
     // Get or create user in database
     const dbUser = await ensureUserExists(user);
 
+    // Ensure gameStats exists
+    if (!dbUser.gameStats) {
+      return NextResponse.json(
+        { error: "Failed to initialize user profile" },
+        { status: 500 },
+      );
+    }
+
     // Calculate win rate
     const winRate =
-      dbUser.gameStats!.totalGames > 0
+      dbUser.gameStats.totalGames > 0
         ? Math.round(
-            (dbUser.gameStats!.wins / dbUser.gameStats!.totalGames) * 100
+            (dbUser.gameStats.wins / dbUser.gameStats.totalGames) * 100,
           )
         : 0;
 
@@ -28,22 +36,22 @@ export async function GET(request: NextRequest) {
       bio: dbUser.bio || "",
       country: dbUser.profile?.country || "",
       stats: {
-        totalGames: dbUser.gameStats!.totalGames,
-        wins: dbUser.gameStats!.wins,
-        losses: dbUser.gameStats!.losses,
-        draws: dbUser.gameStats!.draws,
-        eloRating: dbUser.gameStats!.eloRating,
-        rank: dbUser.gameStats!.rank,
+        totalGames: dbUser.gameStats.totalGames,
+        wins: dbUser.gameStats.wins,
+        losses: dbUser.gameStats.losses,
+        draws: dbUser.gameStats.draws,
+        eloRating: dbUser.gameStats.eloRating,
+        rank: dbUser.gameStats.rank,
         winRate,
-        currentWinStreak: dbUser.gameStats!.currentWinStreak,
-        longestWinStreak: dbUser.gameStats!.longestWinStreak,
+        currentWinStreak: dbUser.gameStats.currentWinStreak,
+        longestWinStreak: dbUser.gameStats.longestWinStreak,
       },
     });
   } catch (error) {
     console.error("Profile fetch error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -57,13 +65,20 @@ export async function PUT(request: NextRequest) {
     }
 
     // Ensure user exists before attempting update
-    await ensureUserExists(user);
+    const dbUser = await ensureUserExists(user);
+
+    if (!dbUser.profile) {
+      return NextResponse.json(
+        { error: "Failed to initialize user profile" },
+        { status: 500 },
+      );
+    }
 
     const body = await request.json();
     const { displayName, bio, country } = body;
 
     // Update user
-    const updated = await prisma.user.update({
+    await prisma.user.update({
       where: { stackId: user.id },
       data: {
         displayName,
@@ -81,7 +96,7 @@ export async function PUT(request: NextRequest) {
     console.error("Profile update error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

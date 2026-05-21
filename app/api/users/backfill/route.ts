@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/lib/stack";
 import { prisma } from "@/lib/prisma";
+import { ensureUserExists } from "@/lib/ensure-user";
 
 /**
  * Backfill endpoint to sync all Stack Auth users to database
@@ -27,36 +28,18 @@ export async function POST(request: NextRequest) {
     // Process each Stack Auth user
     for (const stackUser of stackUsers) {
       try {
-        // Check if user already exists in database
         const existingUser = await prisma.user.findUnique({
           where: { stackId: stackUser.id },
         });
+
+        await ensureUserExists(stackUser);
 
         if (existingUser) {
           results.existing++;
           console.log(`User already exists: ${existingUser.username}`);
         } else {
-          // Create new user with profile and game stats
-          const newUser = await prisma.user.create({
-            data: {
-              stackId: stackUser.id,
-              email: stackUser.primaryEmail || "",
-              username:
-                stackUser.displayName ||
-                stackUser.primaryEmail?.split("@")[0] ||
-                `user_${Date.now()}`,
-              displayName: stackUser.displayName || null,
-              profile: {
-                create: {},
-              },
-              gameStats: {
-                create: {},
-              },
-            },
-          });
-
           results.created++;
-          console.log(`Created user: ${newUser.username}`);
+          console.log(`Created user: ${stackUser.id}`);
         }
       } catch (error) {
         const errorMsg = `Failed to process user ${stackUser.id}: ${error}`;
@@ -74,7 +57,7 @@ export async function POST(request: NextRequest) {
     console.error("Backfill error:", error);
     return NextResponse.json(
       { error: "Internal server error", details: String(error) },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
