@@ -12,12 +12,12 @@ import {
 export function useOthelloGame(
   gameMode: GameMode = "ai",
   difficulty: Difficulty = "medium",
-  playerColor: "black" | "white" = "black"
+  playerColor: "black" | "white" = "black",
 ) {
   const aiColor = playerColor === "black" ? "white" : "black";
   const [currentDifficulty, setCurrentDifficulty] = useState(difficulty);
   const [game] = useState(
-    () => new OthelloGame(gameMode, currentDifficulty, aiColor)
+    () => new OthelloGame(gameMode, currentDifficulty, aiColor),
   );
   const [gameState, setGameState] = useState<GameState>(game.getGameState());
   const [isAiThinking, setIsAiThinking] = useState(false);
@@ -77,7 +77,7 @@ export function useOthelloGame(
       }
       return success;
     },
-    [game, gameMode, gameStarted, updateGameState, triggerAiMoveIfNeeded]
+    [game, gameMode, gameStarted, updateGameState, triggerAiMoveIfNeeded],
   );
 
   const restartGame = useCallback(
@@ -93,8 +93,8 @@ export function useOthelloGame(
         newPlayerColor === "black"
           ? "white"
           : newPlayerColor === "white"
-          ? "black"
-          : aiColor;
+            ? "black"
+            : aiColor;
 
       setCurrentDifficulty(targetDifficulty);
       const newGame = new OthelloGame(gameMode, targetDifficulty, newAiColor);
@@ -104,7 +104,7 @@ export function useOthelloGame(
       setIsAiThinking(false);
       setGameStarted(false);
     },
-    [game, gameMode, currentDifficulty, aiColor, updateGameState]
+    [game, gameMode, currentDifficulty, aiColor, updateGameState],
   );
 
   const resignGame = useCallback(() => {
@@ -125,7 +125,7 @@ export function useOthelloGame(
     (newDifficulty: Difficulty) => {
       restartGame(newDifficulty);
     },
-    [restartGame]
+    [restartGame],
   );
 
   const undoMove = useCallback(() => {

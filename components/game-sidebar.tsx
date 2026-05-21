@@ -251,10 +251,11 @@ export function GameSidebar({
             <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={difficulty === "easy" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 ${difficulty === "easy"
+                className={`text-xs lg:text-sm transition-all duration-300 ${
+                  difficulty === "easy"
                     ? "bg-green-600 hover:bg-green-700 text-white"
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                  }`}
+                }`}
                 onClick={() => onDifficultyChange("easy")}
                 disabled={gameHasStarted && gameStatus !== "finished"}
               >
@@ -262,10 +263,11 @@ export function GameSidebar({
               </Button>
               <Button
                 variant={difficulty === "medium" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 ${difficulty === "medium"
+                className={`text-xs lg:text-sm transition-all duration-300 ${
+                  difficulty === "medium"
                     ? "bg-yellow-600 hover:bg-yellow-700 text-white"
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                  }`}
+                }`}
                 onClick={() => onDifficultyChange("medium")}
                 disabled={gameHasStarted && gameStatus !== "finished"}
               >
@@ -273,14 +275,18 @@ export function GameSidebar({
               </Button>
               <Button
                 variant={difficulty === "hard" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 relative ${difficulty === "hard"
+                className={`text-xs lg:text-sm transition-all duration-300 relative ${
+                  difficulty === "hard"
                     ? "bg-red-600 hover:bg-red-700 text-white"
                     : !isAuthenticated
                       ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
                       : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                  }`}
+                }`}
                 onClick={() => onDifficultyChange("hard")}
-                disabled={(gameHasStarted && gameStatus !== "finished") || !isAuthenticated}
+                disabled={
+                  (gameHasStarted && gameStatus !== "finished") ||
+                  !isAuthenticated
+                }
               >
                 {!isAuthenticated && <Lock className="w-3 h-3 mr-1" />}
                 Hard
@@ -300,8 +306,6 @@ export function GameSidebar({
         </Card>
       )}
 
-
-
       {/* Game Controls */}
       <Card className="bg-white/10 backdrop-blur-sm border-white/20 transition-all duration-300 hover:bg-white/15">
         <CardHeader className="pb-2 lg:pb-3">
@@ -319,7 +323,9 @@ export function GameSidebar({
             >
               Undo Move
               {undosRemaining !== undefined && (
-                <span className="ml-2 text-xs opacity-70">({undosRemaining} left)</span>
+                <span className="ml-2 text-xs opacity-70">
+                  ({undosRemaining} left)
+                </span>
               )}
             </Button>
           )}
