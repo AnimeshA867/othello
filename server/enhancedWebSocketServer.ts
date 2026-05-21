@@ -57,7 +57,7 @@ class EnhancedOthelloWebSocketServer {
         try {
           const message: WebSocketMessage = JSON.parse(data.toString());
           console.log(
-            `[${connectionId}] Received message: ${JSON.stringify(message)}`
+            `[${connectionId}] Received message: ${JSON.stringify(message)}`,
           );
           await this.handleMessage(ws, message);
         } catch (error) {
@@ -77,14 +77,17 @@ class EnhancedOthelloWebSocketServer {
     });
 
     // Clean up old rooms every hour
-    setInterval(() => {
-      cleanupRooms();
-    }, 60 * 60 * 1000);
+    setInterval(
+      () => {
+        cleanupRooms();
+      },
+      60 * 60 * 1000,
+    );
   }
 
   private async handleMessage(
     ws: ExtendedWebSocket,
-    message: WebSocketMessage
+    message: WebSocketMessage,
   ) {
     console.log(`Received message: ${message.type}`);
 
@@ -135,7 +138,7 @@ class EnhancedOthelloWebSocketServer {
           ws,
           message.rankSetType,
           message.rank,
-          message.playerName
+          message.playerName,
         );
         break;
       case "get_room_info":
@@ -153,10 +156,12 @@ class EnhancedOthelloWebSocketServer {
     try {
       const room = createRoom(playerId, playerName);
 
+      const creatorColor = room.players[0]?.color || "black";
+
       this.sendMessage(ws, {
         type: "room_created",
         roomId: room.roomId,
-        player: "black",
+        player: creatorColor,
       });
 
       this.sendMessage(ws, {
@@ -174,7 +179,7 @@ class EnhancedOthelloWebSocketServer {
     console.log(
       `Attempting to join room ${roomId} with player ${
         playerName || "Anonymous"
-      }`
+      }`,
     );
 
     const playerId = uuidv4();
@@ -184,10 +189,15 @@ class EnhancedOthelloWebSocketServer {
       const room = joinRoom(roomId, playerId, playerName);
       console.log(`Player ${playerId} successfully joined room ${roomId}`);
 
+      // Find the joining player to get their assigned color
+      const joiningPlayer = room.players.find((p) => p.id === playerId);
+      const joiningColor = joiningPlayer?.color || "white";
+
       // Send confirmation to the joining player
       this.sendMessage(ws, {
         type: "player_joined",
-        player: "white",
+        player: joiningColor,
+        roomId: room.roomId,
         playerName,
       });
 
@@ -197,8 +207,9 @@ class EnhancedOthelloWebSocketServer {
         gameState: room.gameState,
       });
 
-      // Find the other player
+      // Find players by color for game_ready
       const blackPlayer = room.players.find((p) => p.color === "black");
+      const whitePlayer = room.players.find((p) => p.color === "white");
 
       // Notify both players that the game is ready
       this.broadcastToRoom(room.roomId, {
@@ -206,7 +217,7 @@ class EnhancedOthelloWebSocketServer {
         roomId: room.roomId,
         players: {
           black: blackPlayer?.name || "Player 1",
-          white: playerName || "Player 2",
+          white: whitePlayer?.name || "Player 2",
         },
       });
 
@@ -215,7 +226,7 @@ class EnhancedOthelloWebSocketServer {
       console.error(`Error joining room ${roomId}:`, error);
       this.sendError(
         ws,
-        error instanceof Error ? error.message : "Failed to join room"
+        error instanceof Error ? error.message : "Failed to join room",
       );
     }
   }
@@ -224,7 +235,7 @@ class EnhancedOthelloWebSocketServer {
     ws: ExtendedWebSocket,
     rankSetType: string,
     rank: number,
-    playerName?: string
+    playerName?: string,
   ) {
     const playerId = uuidv4();
     ws.playerId = playerId;
@@ -241,15 +252,18 @@ class EnhancedOthelloWebSocketServer {
         playerId,
         playerName,
         rank || 1000,
-        rankSetType as RankSetType
+        rankSetType as RankSetType,
       );
 
       // If room is in waiting status, this is the first player
       if (room.status === "waiting") {
+        const creatorColor =
+          room.players.find((p) => p.id === playerId)?.color || "black";
+
         this.sendMessage(ws, {
           type: "room_created",
           roomId: room.roomId,
-          player: "black",
+          player: creatorColor,
         });
 
         this.sendMessage(ws, {
@@ -257,15 +271,18 @@ class EnhancedOthelloWebSocketServer {
         });
 
         console.log(
-          `Player ${playerName || playerId} waiting in room ${room.roomId}`
+          `Player ${playerName || playerId} waiting in room ${room.roomId}`,
         );
       } else {
         // If room is active, this is the second player
+        const joiningPlayer = room.players.find((p) => p.id === playerId);
+        const joiningColor = joiningPlayer?.color || "white";
 
         // Send confirmation to the joining player
         this.sendMessage(ws, {
           type: "player_joined",
-          player: "white",
+          player: joiningColor,
+          roomId: room.roomId,
           playerName,
         });
 
@@ -275,8 +292,9 @@ class EnhancedOthelloWebSocketServer {
           gameState: room.gameState,
         });
 
-        // Find the other player
+        // Find players by color for game_ready
         const blackPlayer = room.players.find((p) => p.color === "black");
+        const whitePlayer = room.players.find((p) => p.color === "white");
 
         // Notify both players that the game is ready
         this.broadcastToRoom(room.roomId, {
@@ -284,12 +302,12 @@ class EnhancedOthelloWebSocketServer {
           roomId: room.roomId,
           players: {
             black: blackPlayer?.name || "Player 1",
-            white: playerName || "Player 2",
+            white: whitePlayer?.name || "Player 2",
           },
         });
 
         console.log(
-          `Player ${playerName || playerId} matched in room ${room.roomId}`
+          `Player ${playerName || playerId} matched in room ${room.roomId}`,
         );
       }
     } catch (error) {
@@ -366,7 +384,7 @@ class EnhancedOthelloWebSocketServer {
       console.log(
         `Player ${player.name || playerId} made move at ${row},${col} in room ${
           room.roomId
-        }`
+        }`,
       );
     } catch (error) {
       console.error("Error making move:", error);
@@ -435,7 +453,7 @@ class EnhancedOthelloWebSocketServer {
 
     const roomId = room.roomId;
     console.log(
-      `[SERVER] Draw offer from player ${playerId} in room ${roomId}`
+      `[SERVER] Draw offer from player ${playerId} in room ${roomId}`,
     );
 
     if (!roomId) {
@@ -550,7 +568,7 @@ class EnhancedOthelloWebSocketServer {
 
     const roomId = room.roomId;
     console.log(
-      `[SERVER] Rematch offer from player ${playerId} in room ${roomId}`
+      `[SERVER] Rematch offer from player ${playerId} in room ${roomId}`,
     );
 
     if (!roomId) {
@@ -665,7 +683,7 @@ class EnhancedOthelloWebSocketServer {
   private handleChatMessage(
     ws: WebSocket,
     message: string,
-    senderName?: string
+    senderName?: string,
   ) {
     const playerId = (ws as any).playerId;
     const room = getRoomByPlayerId(playerId);
@@ -753,7 +771,7 @@ class EnhancedOthelloWebSocketServer {
       console.warn(
         `Cannot send message, socket is not open (readyState=${
           ws.readyState
-        }): ${JSON.stringify(message)}`
+        }): ${JSON.stringify(message)}`,
       );
     }
   }

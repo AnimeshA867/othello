@@ -87,7 +87,6 @@ export function TutorialDialog({
   onSkip,
 }: TutorialDialogProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [state, setState] = useState(open);
   const handleNext = () => {
     if (currentStep < tutorialSteps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -111,9 +110,9 @@ export function TutorialDialog({
 
   return (
     <Dialog
-      open={state}
+      open={open}
       onOpenChange={() => {
-        setState(false);
+        onSkip();
       }}
     >
       <DialogContent className="sm:max-w-[600px] bg-gradient-to-br from-gray-900 via-gray-800 to-black border-gray-700">

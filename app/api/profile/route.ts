@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/lib/stack";
+import { ensureUserExists } from "@/lib/ensure-user";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -11,38 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get or create user in database
-    let dbUser = await prisma.user.findUnique({
-      where: { stackId: user.id },
-      include: {
-        profile: true,
-        gameStats: true,
-      },
-    });
-
-    if (!dbUser) {
-      // Create new user with default data
-      dbUser = await prisma.user.create({
-        data: {
-          stackId: user.id,
-          email: user.primaryEmail || "",
-          username:
-            user.displayName ||
-            user.primaryEmail?.split("@")[0] ||
-            `user_${Date.now()}`,
-          displayName: user.displayName || null,
-          profile: {
-            create: {},
-          },
-          gameStats: {
-            create: {},
-          },
-        },
-        include: {
-          profile: true,
-          gameStats: true,
-        },
-      });
-    }
+    const dbUser = await ensureUserExists(user);
 
     // Calculate win rate
     const winRate =
@@ -85,6 +55,9 @@ export async function PUT(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Ensure user exists before attempting update
+    await ensureUserExists(user);
 
     const body = await request.json();
     const { displayName, bio, country } = body;

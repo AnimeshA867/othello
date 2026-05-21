@@ -20,6 +20,7 @@ export type WebSocketMessage =
   | {
       type: "player_joined";
       player: Player;
+      roomId?: string;
       playerName?: string;
       rank?: number;
     }
@@ -101,7 +102,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
   const messageCallbacks = useRef<Set<(message: WebSocketMessage) => void>>(
-    new Set()
+    new Set(),
   );
   // Message queue for storing messages that couldn't be sent immediately
   const messageQueue = useRef<WebSocketMessage[]>([]);
@@ -147,7 +148,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         // Process any queued messages
         if (messageQueue.current.length > 0) {
           console.log(
-            `Processing ${messageQueue.current.length} queued messages`
+            `Processing ${messageQueue.current.length} queued messages`,
           );
           messageQueue.current.forEach((message) => {
             if (ws.current?.readyState === WebSocket.OPEN) {
@@ -188,7 +189,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         console.log(
           `WebSocket closed with code ${event.code}. Reason: ${
             event.reason || "No reason provided"
-          }`
+          }`,
         );
 
         let errorMessage = null;
@@ -220,13 +221,13 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           console.log(
             `Attempting to reconnect (attempt ${
               reconnectAttempts.current + 1
-            }/${maxReconnectAttempts})...`
+            }/${maxReconnectAttempts})...`,
           );
 
           // Exponential backoff for reconnection
           const delay = Math.min(
             1000 * Math.pow(2, reconnectAttempts.current),
-            10000
+            10000,
           );
           console.log(`Reconnecting in ${delay}ms`);
 
@@ -236,7 +237,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           }, delay);
         } else if (reconnectAttempts.current >= maxReconnectAttempts) {
           console.error(
-            `Maximum reconnection attempts (${maxReconnectAttempts}) reached`
+            `Maximum reconnection attempts (${maxReconnectAttempts}) reached`,
           );
         }
       };
@@ -267,6 +268,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
           ...prev,
           roomId: message.roomId,
           playerRole: message.player,
+          error: null,
           isWaitingForPlayer: true,
         }));
         break;
@@ -274,7 +276,10 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       case "player_joined":
         setWebSocketState((prev) => ({
           ...prev,
-          playerRole: message.player,
+          roomId: message.roomId ?? prev.roomId,
+          // Only set playerRole if not already set (room creator already has it)
+          playerRole: prev.playerRole || message.player,
+          error: null,
           isWaitingForPlayer: false,
         }));
         break;
@@ -282,6 +287,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       case "game_ready":
         setWebSocketState((prev) => ({
           ...prev,
+          error: null,
           isWaitingForPlayer: false,
         }));
         break;
@@ -329,7 +335,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         }
       } else {
         console.warn(
-          "WebSocket is not connected, queueing message and attempting to connect"
+          "WebSocket is not connected, queueing message and attempting to connect",
         );
         // Add to message queue
         messageQueue.current.push(message);
@@ -340,13 +346,13 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         }
       }
     },
-    [connect, websocketState.isConnecting]
+    [connect, websocketState.isConnecting],
   );
 
   const createRoom = useCallback(
     (playerName?: string) => {
       console.log(
-        `Creating room with player name: ${playerName || "anonymous"}`
+        `Creating room with player name: ${playerName || "anonymous"}`,
       );
 
       // Always queue the message first to ensure it gets sent
@@ -360,7 +366,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         sendMessage({ type: "create_room", playerName });
       }
     },
-    [websocketState.isConnected, connect, sendMessage]
+    [websocketState.isConnected, connect, sendMessage],
   );
 
   const joinRoom = useCallback(
@@ -370,14 +376,14 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       }
       sendMessage({ type: "join_room", roomId, playerName });
     },
-    [websocketState.isConnected, connect, sendMessage]
+    [websocketState.isConnected, connect, sendMessage],
   );
 
   const makeMove = useCallback(
     (row: number, col: number) => {
       sendMessage({ type: "make_move", row, col });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const restartGame = useCallback(() => {
@@ -426,7 +432,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
       console.log("Sending chat message:", message);
       sendMessage({ type: "send_chat_message", message, senderName });
     },
-    [sendMessage]
+    [sendMessage],
   );
 
   const disconnect = useCallback(() => {
@@ -453,7 +459,7 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         messageCallbacks.current.delete(callback);
       };
     },
-    []
+    [],
   );
 
   useEffect(() => {

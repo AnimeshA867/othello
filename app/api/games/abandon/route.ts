@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/lib/stack";
+import { ensureUserExists } from "@/lib/ensure-user";
 import { prisma } from "@/lib/prisma";
 
 interface AbandonGameRequest {
@@ -19,34 +20,7 @@ export async function POST(request: NextRequest) {
     const body: AbandonGameRequest = await request.json();
     const { mode, duration, moveCount } = body;
 
-    // Get or create user in database
-    let dbUser = await prisma.user.findUnique({
-      where: { stackId: user.id },
-      include: { gameStats: true },
-    });
-
-    if (!dbUser) {
-      dbUser = await prisma.user.create({
-        data: {
-          stackId: user.id,
-          email: user.primaryEmail || "",
-          username:
-            user.displayName ||
-            user.primaryEmail?.split("@")[0] ||
-            `user_${Date.now()}`,
-          displayName: user.displayName || null,
-          profile: { create: {} },
-          gameStats: { create: {} },
-        },
-        include: { gameStats: true },
-      });
-    }
-
-    if (!dbUser.gameStats) {
-      await prisma.gameStats.create({
-        data: { userId: dbUser.id },
-      });
-    }
+    const dbUser = await ensureUserExists(user);
 
     // Increment abandon count for tracking purposes
     // Abandons are early game quits (≤1 move per player, ≤2 total moves)
@@ -87,7 +61,7 @@ export async function POST(request: NextRequest) {
     console.error("Game abandon error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -21,7 +21,7 @@ export async function findOrCreateRoom(
   userId: string,
   playerName: string | undefined,
   userRank: number,
-  rankSetType: RankSetType
+  rankSetType: RankSetType,
 ): Promise<Room> {
   // Find rooms with waiting status and matching rank set type
   const availableRooms: Room[] = [];
@@ -43,11 +43,15 @@ export async function findOrCreateRoom(
     // Join room with closest rank
     const room = availableRooms[0];
 
+    // Second player gets the opposite color of the first
+    const firstPlayerColor = room.players[0]?.color || "black";
+    const secondColor = firstPlayerColor === "black" ? "white" : "black";
+
     const player: Player = {
       id: userId,
       name: playerName,
       rank: userRank,
-      color: "white", // Second player is always white
+      color: secondColor,
     };
 
     room.players.push(player);
@@ -60,11 +64,15 @@ export async function findOrCreateRoom(
     // Create new room
     const roomId = generateRoomId();
 
+    // Randomly assign color to first player
+    const firstColor: "black" | "white" =
+      Math.random() < 0.5 ? "black" : "white";
+
     const player: Player = {
       id: userId,
       name: playerName,
       rank: userRank,
-      color: "black", // First player is always black
+      color: firstColor,
     };
 
     const room: Room = {
@@ -91,18 +99,21 @@ export function createRoom(
   userId: string,
   playerName: string | undefined,
   userRank: number = 1000,
-  rankSetType: RankSetType = "beginner"
+  rankSetType: RankSetType = "beginner",
 ): Room {
   const roomId = generateRoomId();
   console.log(
-    `Creating new room with ID ${roomId} for player ${playerName || userId}`
+    `Creating new room with ID ${roomId} for player ${playerName || userId}`,
   );
+
+  // Randomly assign color to first player
+  const firstColor = Math.random() < 0.5 ? "black" : "white";
 
   const player: Player = {
     id: userId,
     name: playerName,
     rank: userRank,
-    color: "black", // First player is always black
+    color: firstColor,
   };
 
   const room: Room = {
@@ -120,7 +131,7 @@ export function createRoom(
   console.log(
     `New room ${roomId} created by ${playerName || userId}. Total rooms: ${
       rooms.size
-    }`
+    }`,
   );
   return room;
 }
@@ -132,10 +143,10 @@ export function joinRoom(
   roomId: string,
   userId: string,
   playerName: string | undefined,
-  userRank: number = 1000
+  userRank: number = 1000,
 ): Room {
   console.log(
-    `Attempting to join room ${roomId} with player ${playerName || userId}`
+    `Attempting to join room ${roomId} with player ${playerName || userId}`,
   );
 
   const room = rooms.get(roomId);
@@ -143,31 +154,36 @@ export function joinRoom(
   if (!room) {
     console.error(
       `Room ${roomId} not found. Available rooms: ${Array.from(
-        rooms.keys()
-      ).join(", ")}`
+        rooms.keys(),
+      ).join(", ")}`,
     );
-    throw new Error(`Room ${roomId} not found`);
+    throw new Error("Invalid room ID or room is full");
   }
 
   if (room.status !== "waiting") {
     console.error(
-      `Room ${roomId} is not in waiting status (current: ${room.status})`
+      `Room ${roomId} is not in waiting status (current: ${room.status})`,
     );
-    throw new Error(`Room ${roomId} is not in waiting status`);
+    throw new Error("Invalid room ID or room is full");
   }
 
   if (room.players.length >= 2) {
     console.error(
-      `Room ${roomId} is already full (${room.players.length} players)`
+      `Room ${roomId} is already full (${room.players.length} players)`,
     );
-    throw new Error(`Room ${roomId} is already full`);
+    throw new Error("Invalid room ID or room is full");
   }
+
+  // Second player gets the opposite color of the first
+  const firstPlayerColor = room.players[0]?.color || "black";
+  const secondColor: "black" | "white" =
+    firstPlayerColor === "black" ? "white" : "black";
 
   const player: Player = {
     id: userId,
     name: playerName,
     rank: userRank,
-    color: "white", // Second player is always white
+    color: secondColor,
   };
 
   room.players.push(player);
@@ -184,7 +200,7 @@ export function joinRoom(
 export function updateGameState(
   roomId: string,
   userId: string,
-  gameState: GameState
+  gameState: GameState,
 ): Room {
   const room = rooms.get(roomId);
 
@@ -242,12 +258,13 @@ export function removePlayerFromRoom(userId: string): void {
     rooms.delete(roomId);
     console.log(`Room ${roomId} removed (empty)`);
   } else {
-    // If game was active, mark as finished
+    // If one player remains, keep room available for a new opponent.
     if (room.status === "active") {
-      room.status = "finished";
-      room.gameState.isGameOver = true;
-      room.gameState.winner = room.players[0].color;
-      console.log(`Game in room ${roomId} ended due to player disconnect`);
+      room.status = "waiting";
+      room.gameState = createInitialGameState();
+      console.log(
+        `Room ${roomId} reset to waiting after player disconnect (1 player remaining)`,
+      );
     }
   }
 

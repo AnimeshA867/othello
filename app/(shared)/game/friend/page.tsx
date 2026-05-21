@@ -28,7 +28,11 @@ import {
 } from "@/lib/redux/slices/uiSlice";
 import { incrementGameStats } from "@/lib/redux/slices/userSlice";
 import { setGameType } from "@/lib/redux/slices/gameSlice";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -57,16 +61,16 @@ export default function FriendGamePage() {
 
   // Redux state
   const showGameOverDialog = useAppSelector(
-    (state: any) => state.ui.showGameOverDialog
+    (state: any) => state.ui.showGameOverDialog,
   );
   const showDrawOfferDialog = useAppSelector(
-    (state: any) => state.ui.showDrawOfferDialog
+    (state: any) => state.ui.showDrawOfferDialog,
   );
   const showRematchOfferDialog = useAppSelector(
-    (state: any) => state.ui.showRematchOfferDialog
+    (state: any) => state.ui.showRematchOfferDialog,
   );
   const showResignDialog = useAppSelector(
-    (state: any) => state.ui.showResignDialog
+    (state: any) => state.ui.showResignDialog,
   );
 
   const gameStartTimeRef = useRef<number>(Date.now());
@@ -84,12 +88,39 @@ export default function FriendGamePage() {
   const [isRoomCreator, setIsRoomCreator] = useState(false);
   const [isGameEnding, setIsGameEnding] = useState(false); // Track if game is ending
 
-  // Close initial dialog when connected
+  // Close initial dialog when connected AND has a room
   useEffect(() => {
-    if (websocketState.isConnected && dialogOpen) {
+    if (
+      websocketState.isConnected &&
+      (gameState.roomId || websocketState.roomId) &&
+      dialogOpen
+    ) {
       setDialogOpen(false);
     }
-  }, [websocketState.isConnected, dialogOpen]);
+  }, [
+    websocketState.isConnected,
+    websocketState.roomId,
+    gameState.roomId,
+    dialogOpen,
+  ]);
+
+  // Close join dialog only after successful room join.
+  useEffect(() => {
+    if (joinDialogOpen && (gameState.roomId || websocketState.roomId)) {
+      setJoinDialogOpen(false);
+    }
+  }, [joinDialogOpen, gameState.roomId, websocketState.roomId]);
+
+  // Show error toasts from WebSocket
+  useEffect(() => {
+    if (websocketState.error) {
+      toast({
+        title: "Connection Error",
+        description: websocketState.error,
+        variant: "destructive",
+      });
+    }
+  }, [websocketState.error, toast]);
 
   // Track move count for abandon logic
   useEffect(() => {
@@ -124,7 +155,7 @@ export default function FriendGamePage() {
         const myRole = websocketState.playerRole;
         const winner = gameState.winner;
         const duration = Math.floor(
-          (Date.now() - gameStartTimeRef.current) / 1000
+          (Date.now() - gameStartTimeRef.current) / 1000,
         );
 
         let won = false;
@@ -137,7 +168,7 @@ export default function FriendGamePage() {
             won,
             draw: winner === "draw",
             mode: "friend",
-          })
+          }),
         );
 
         fetch("/api/games/record", {
@@ -280,8 +311,7 @@ export default function FriendGamePage() {
         user?.displayName || user?.primaryEmail?.split("@")[0] || "Player";
       setIsRoomCreator(false); // Mark as joiner, not creator
       joinGameRoom(roomIdToJoin, playerName);
-      setJoinDialogOpen(false);
-      setDialogOpen(false);
+      // Keep dialog open until the server confirms join success.
     }
   }, [roomIdToJoin, user, joinGameRoom]);
 
@@ -307,7 +337,7 @@ export default function FriendGamePage() {
       setIsRoomCreator(false); // Mark as joiner
       joinGameRoom(roomId, playerName);
     },
-    [user, joinGameRoom]
+    [user, joinGameRoom],
   );
 
   // Handle making a move
@@ -315,7 +345,7 @@ export default function FriendGamePage() {
     async (row: number, col: number) => {
       return await makeMove(row, col);
     },
-    [makeMove]
+    [makeMove],
   );
 
   // Handle game restart - offer rematch instead of immediately restarting
@@ -449,7 +479,7 @@ export default function FriendGamePage() {
     (message: string) => {
       sendChatMessage(message, playerName);
     },
-    [sendChatMessage, playerName]
+    [sendChatMessage, playerName],
   );
 
   return (
@@ -536,20 +566,15 @@ export default function FriendGamePage() {
                     variant="outline"
                     className="bg-blue-500/20 text-blue-300"
                   >
-
                     <HoverCard openDelay={10} closeDelay={100}>
                       <HoverCardTrigger asChild>
                         <Button variant="link">Room: {gameState.roomId}</Button>
                       </HoverCardTrigger>
                       <HoverCardContent className="flex w-64 flex-col gap-0.5">
-
                         <div className="p-3 rounded-lg ">
                           <p className="text-xs text-gray-400 mb-2">Room ID:</p>
                           <div className="flex items-center gap-2">
-                            <Input
-                              value={gameState.roomId}
-                              readOnly
-                            />
+                            <Input value={gameState.roomId} readOnly />
                             <Button
                               variant="outline"
                               size="icon"
@@ -559,11 +584,8 @@ export default function FriendGamePage() {
                             </Button>
                           </div>
                         </div>
-
-
                       </HoverCardContent>
                     </HoverCard>
-
                   </Badge>
                 )}
                 {gameState.isWaitingForPlayer && (
@@ -581,8 +603,8 @@ export default function FriendGamePage() {
               board={gameState.board}
               validMoves={
                 websocketState.playerRole === gameState.currentPlayer &&
-                  !gameState.isGameOver &&
-                  !isGameEnding
+                !gameState.isGameOver &&
+                !isGameEnding
                   ? gameState.validMoves
                   : []
               }
@@ -643,9 +665,14 @@ export default function FriendGamePage() {
         </div>
       </div>
 
-      {/* Initial dialog for creating/joining a room */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-gradient-to-br from-gray-900 to-gray-800 border-white/20">
+      {/* Initial dialog for creating/joining a room — non-closable */}
+      <Dialog open={dialogOpen} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md bg-gradient-to-br from-gray-900 to-gray-800 border-white/20"
+          hideCloseButton
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="text-white text-xl flex items-center gap-2">
               <Users className="w-5 h-5" />
@@ -658,10 +685,11 @@ export default function FriendGamePage() {
           <div className="grid gap-4 py-4">
             <Button
               onClick={handleCreateRoom}
-              className={`w-full ${!user
-                ? "bg-blue-600/50 hover:bg-blue-700/50 text-white relative"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
+              className={`w-full ${
+                !user
+                  ? "bg-blue-600/50 hover:bg-blue-700/50 text-white relative"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
             >
               {!user && <Lock className="w-4 h-4 mr-2" />}
               Create New Room
@@ -849,7 +877,7 @@ export default function FriendGamePage() {
             gameState.chatMessages
               ?.filter(
                 (msg): msg is typeof msg & { sender: "black" | "white" } =>
-                  msg.sender === "black" || msg.sender === "white"
+                  msg.sender === "black" || msg.sender === "white",
               )
               .map((msg) => ({
                 ...msg,
