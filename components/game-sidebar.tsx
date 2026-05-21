@@ -43,6 +43,10 @@ interface GameSidebarProps {
   isAuthenticated?: boolean;
   // Abandon mode (when both players have moved)
   showAbandon?: boolean;
+  // Undo tracking
+  undosRemaining?: number;
+  // Whether the game has actually started (moves have been made)
+  gameHasStarted?: boolean;
 }
 
 export function GameSidebar({
@@ -68,6 +72,8 @@ export function GameSidebar({
   playerElo,
   isAuthenticated = true,
   showAbandon = false,
+  undosRemaining,
+  gameHasStarted = false,
 }: GameSidebarProps) {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [joinRoomId, setJoinRoomId] = useState("");
@@ -251,7 +257,7 @@ export function GameSidebar({
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
                 }`}
                 onClick={() => onDifficultyChange("easy")}
-                disabled={gameStatus === "playing"}
+                disabled={gameHasStarted && gameStatus !== "finished"}
               >
                 Easy
               </Button>
@@ -263,7 +269,7 @@ export function GameSidebar({
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
                 }`}
                 onClick={() => onDifficultyChange("medium")}
-                disabled={gameStatus === "playing"}
+                disabled={gameHasStarted && gameStatus !== "finished"}
               >
                 Medium
               </Button>
@@ -277,7 +283,7 @@ export function GameSidebar({
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
                 }`}
                 onClick={() => onDifficultyChange("hard")}
-                disabled={gameStatus === "playing" || !isAuthenticated}
+                disabled={(gameHasStarted && gameStatus !== "finished") || !isAuthenticated}
               >
                 {!isAuthenticated && <Lock className="w-3 h-3 mr-1" />}
                 Hard
@@ -288,9 +294,9 @@ export function GameSidebar({
                 🔒 Sign in to unlock hard difficulty
               </p>
             )}
-            {gameStatus === "playing" && (
+            {gameHasStarted && gameStatus !== "finished" && (
               <p className="text-xs text-gray-400 text-center mt-2">
-                Finish current game to change difficulty
+                Resign or finish the game to change difficulty
               </p>
             )}
           </CardContent>
@@ -370,6 +376,9 @@ export function GameSidebar({
               disabled={!canUndo || isAiThinking}
             >
               Undo Move
+              {undosRemaining !== undefined && (
+                <span className="ml-2 text-xs opacity-70">({undosRemaining} left)</span>
+              )}
             </Button>
           )}
 

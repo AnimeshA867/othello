@@ -3,9 +3,9 @@
 import { OthelloBoard } from "@/components/othello-board";
 import { GameSidebar } from "@/components/game-sidebar";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RotateCcw, Settings } from "lucide-react";
+import { ArrowLeft, RotateCcw, Settings, Play } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +30,14 @@ import {
 } from "@/lib/redux/slices/userSlice";
 import { TutorialDialog } from "@/components/tutorial-dialog";
 
+function getRandomColor(): "black" | "white" {
+  return Math.random() < 0.5 ? "black" : "white";
+}
+
 export default function AIGamePage() {
   const dispatch = useAppDispatch();
   const currentDifficulty = useAppSelector(
-    (state: any) => state.game.botDifficulty
+    (state: any) => state.game.difficulty
   );
   const showResignDialog = useAppSelector(
     (state: any) => state.ui.showResignDialog
@@ -51,16 +55,23 @@ export default function AIGamePage() {
   const gameOverDialogShownRef = useRef<boolean>(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isGameEnding, setIsGameEnding] = useState(false);
+  const [playerColor, setPlayerColor] = useState<"black" | "white">(
+    getRandomColor
+  );
 
   const {
     gameState,
     isAiThinking,
+    gameStarted,
     makeMove,
+    startGame,
     restartGame,
     resignGame,
     changeDifficulty,
     undoMove,
-  } = useOthelloGame("ai", currentDifficulty);
+  } = useOthelloGame("ai", currentDifficulty, playerColor);
+
+  const aiColor = playerColor === "black" ? "white" : "black";
 
   // Show tutorial for new users
   useEffect(() => {
@@ -96,11 +107,14 @@ export default function AIGamePage() {
         (Date.now() - gameStartTimeRef.current) / 1000
       );
 
+      const playerWon = winner === playerColor;
+      const isDraw = winner === "draw";
+
       // Increment game stats in Redux
       dispatch(
         incrementGameStats({
-          won: winner === "black",
-          draw: winner === "draw",
+          won: playerWon,
+          draw: isDraw,
           mode: "ai",
         })
       );
@@ -111,10 +125,16 @@ export default function AIGamePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "ai",
-          won: winner === "black",
-          draw: winner === "draw",
-          score: gameState.blackScore,
-          opponentScore: gameState.whiteScore,
+          won: playerWon,
+          draw: isDraw,
+          score:
+            playerColor === "black"
+              ? gameState.blackScore
+              : gameState.whiteScore,
+          opponentScore:
+            playerColor === "black"
+              ? gameState.whiteScore
+              : gameState.blackScore,
           duration,
           difficulty: currentDifficulty,
         }),
@@ -143,12 +163,12 @@ export default function AIGamePage() {
       gameRecordedRef.current = true;
 
       // Show toast
-      if (winner === "draw") {
+      if (isDraw) {
         toast({
           title: "Game Over",
           description: "It's a draw! Well played!",
         });
-      } else if (winner === "black") {
+      } else if (playerWon) {
         toast({
           title: "You Win!",
           description: "Congratulations! You beat the AI!",
@@ -169,23 +189,35 @@ export default function AIGamePage() {
     user,
     currentDifficulty,
     dispatch,
+    playerColor,
   ]);
 
   const handleMove = async (row: number, col: number) => {
     return await makeMove(row, col);
   };
 
-  const handleRestart = () => {
-    restartGame();
+  const handleStartGame = useCallback(() => {
+    startGame();
+    gameStartTimeRef.current = Date.now();
+    toast({
+      title: `Game Started`,
+      description: `You are playing as ${playerColor}. Good luck!`,
+    });
+  }, [startGame, playerColor, toast]);
+
+  const handleRestart = useCallback(() => {
+    const newColor = getRandomColor();
+    setPlayerColor(newColor);
+    restartGame(undefined, newColor);
     gameStartTimeRef.current = Date.now();
     gameRecordedRef.current = false;
     gameOverDialogShownRef.current = false;
     setIsGameEnding(false);
     toast({
       title: "New Game",
-      description: "Starting fresh game against AI",
+      description: `Starting fresh game against AI. You are ${newColor}.`,
     });
-  };
+  }, [restartGame, toast]);
 
   const handleResign = () => {
     dispatch(setShowResignDialog(true));
@@ -230,6 +262,16 @@ export default function AIGamePage() {
       return;
     }
 
+    // Block difficulty change if game has started and is not over
+    if (gameStarted && !gameState.isGameOver) {
+      toast({
+        title: "Cannot Change Difficulty",
+        description: "Resign or finish the current game first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     dispatch(setDifficulty(newDifficulty));
     changeDifficulty(newDifficulty);
     gameStartTimeRef.current = Date.now();
@@ -268,6 +310,13 @@ export default function AIGamePage() {
         return "text-gray-400";
     }
   };
+
+  // Determine if the board should be interactive
+  const isBoardDisabled =
+    gameState.isGameOver || isAiThinking || isGameEnding || !gameStarted;
+
+  // Check if current turn is the player's turn
+  const isPlayerTurn = gameState.currentPlayer === playerColor;
 
   return (
     <div className="min-h-screen bg-black relative">
@@ -322,25 +371,80 @@ export default function AIGamePage() {
                 VS AI ({currentDifficulty})
               </h1>
               <p className={`text-sm ${getDifficultyColor(currentDifficulty)}`}>
-                {isAiThinking
+                {!gameStarted
+                  ? `You are ${playerColor}. Press Start to begin!`
+                  : isAiThinking
                   ? "AI is thinking..."
-                  : `Playing against ${currentDifficulty} AI`}
+                  : `Playing as ${playerColor} against ${currentDifficulty} AI`}
               </p>
             </div>
 
-            <OthelloBoard
-              board={gameState.board}
-              validMoves={
-                gameState.isGameOver || isAiThinking || isGameEnding
-                  ? []
-                  : gameState.validMoves
-              }
-              lastMove={gameState.lastMove}
-              currentPlayer={gameState.currentPlayer}
-              onMove={handleMove}
-              disabled={gameState.isGameOver || isAiThinking || isGameEnding}
-              isAiThinking={isAiThinking}
-            />
+            {/* Start Game Overlay */}
+            {!gameStarted && !gameState.isGameOver && (
+              <div className="relative">
+                <OthelloBoard
+                  board={gameState.board}
+                  validMoves={[]}
+                  lastMove={gameState.lastMove}
+                  currentPlayer={gameState.currentPlayer}
+                  onMove={handleMove}
+                  disabled={true}
+                  isAiThinking={false}
+                />
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4">
+                  <div className="text-center">
+                    <p className="text-white text-lg font-semibold mb-1">
+                      You are playing as
+                    </p>
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div
+                        className={`w-8 h-8 rounded-full ${
+                          playerColor === "black" ? "bg-black border-2 border-gray-300" : "bg-white"
+                        }`}
+                        style={{
+                          boxShadow:
+                            playerColor === "black"
+                              ? "0 4px 8px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.1)"
+                              : "0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.1)",
+                        }}
+                      />
+                      <span className="text-white text-xl font-bold capitalize">
+                        {playerColor}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-6">
+                      {playerColor === "black"
+                        ? "You go first!"
+                        : "AI (Black) will go first"}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleStartGame}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg font-semibold transition-all duration-300 transform hover:scale-105"
+                  >
+                    <Play className="w-5 h-5 mr-2" />
+                    Start Game
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Active Game Board */}
+            {(gameStarted || gameState.isGameOver) && (
+              <OthelloBoard
+                board={gameState.board}
+                validMoves={
+                  gameState.isGameOver || isAiThinking || isGameEnding || !isPlayerTurn
+                    ? []
+                    : gameState.validMoves
+                }
+                lastMove={gameState.lastMove}
+                currentPlayer={gameState.currentPlayer}
+                onMove={handleMove}
+                disabled={isBoardDisabled || !isPlayerTurn}
+                isAiThinking={isAiThinking}
+              />
+            )}
           </div>
         </div>
 
@@ -348,7 +452,7 @@ export default function AIGamePage() {
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
             currentPlayer={gameState.currentPlayer as "black" | "white"}
-            playerColor="black"
+            playerColor={playerColor}
             blackScore={gameState.blackScore}
             whiteScore={gameState.whiteScore}
             playerName={
@@ -358,12 +462,15 @@ export default function AIGamePage() {
             gameMode="ai"
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
+            onRestart={handleRestart}
             onUndo={handleUndo}
             canUndo={gameState.moveHistory.length > 0 && !isAiThinking}
             isAiThinking={isAiThinking}
             difficulty={currentDifficulty}
             onDifficultyChange={handleDifficultyChange}
             isAuthenticated={!!user}
+            undosRemaining={gameState.undosRemaining}
+            gameHasStarted={gameStarted}
           />
         </div>
       </div>
@@ -404,8 +511,9 @@ export default function AIGamePage() {
           <DialogHeader>
             <DialogTitle>Game Settings</DialogTitle>
             <DialogDescription>
-              Adjust AI difficulty level. Changing difficulty will start a new
-              game.
+              {gameStarted && !gameState.isGameOver
+                ? "Resign or finish the current game to change difficulty."
+                : "Adjust AI difficulty level. Changing difficulty will start a new game."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -414,25 +522,45 @@ export default function AIGamePage() {
             </label>
             <div className="flex gap-2">
               {(["easy", "medium", "hard"] as Difficulty[]).map(
-                (difficulty) => (
-                  <Button
-                    key={difficulty}
-                    variant={
-                      currentDifficulty === difficulty ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() => handleDifficultyChange(difficulty)}
-                    className={`capitalize ${
-                      currentDifficulty === difficulty
-                        ? getDifficultyColor(difficulty)
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {difficulty}
-                  </Button>
-                )
+                (difficulty) => {
+                  const isDisabled =
+                    (gameStarted && !gameState.isGameOver) ||
+                    (difficulty === "hard" && !user);
+
+                  return (
+                    <Button
+                      key={difficulty}
+                      variant={
+                        currentDifficulty === difficulty ? "default" : "outline"
+                      }
+                      size="sm"
+                      onClick={() => handleDifficultyChange(difficulty)}
+                      disabled={isDisabled}
+                      className={`capitalize ${
+                        currentDifficulty === difficulty
+                          ? getDifficultyColor(difficulty)
+                          : isDisabled
+                          ? "text-gray-500 cursor-not-allowed"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {difficulty === "hard" && !user && "🔒 "}
+                      {difficulty}
+                    </Button>
+                  );
+                }
               )}
             </div>
+            {!user && (
+              <p className="text-xs text-yellow-400 mt-2">
+                🔒 Sign in to unlock hard difficulty
+              </p>
+            )}
+            {gameStarted && !gameState.isGameOver && (
+              <p className="text-xs text-gray-400 mt-2">
+                Resign or finish the game to change difficulty
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button onClick={() => dispatch(setShowSettingsDialog(false))}>

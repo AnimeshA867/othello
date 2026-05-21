@@ -34,6 +34,7 @@ export class OthelloGame {
   private currentPlayer: Player;
   private gameMode: GameMode;
   private difficulty: Difficulty;
+  private aiPlayer: Player;
   private moveHistory: Array<{
     player: Player;
     position: Position;
@@ -42,9 +43,10 @@ export class OthelloGame {
   }>;
   private undosUsed: number;
 
-  constructor(gameMode: GameMode = "ai", difficulty: Difficulty = "medium") {
+  constructor(gameMode: GameMode = "ai", difficulty: Difficulty = "medium", aiColor: Player = "white") {
     this.gameMode = gameMode;
     this.difficulty = difficulty;
+    this.aiPlayer = aiColor;
     this.board = this.initializeBoard();
     this.currentPlayer = "black"; // Black always starts
     this.moveHistory = [];
@@ -326,8 +328,8 @@ export class OthelloGame {
 
   private evaluateBoard(game: OthelloGame): number {
     const scores = game.calculateScores();
-    const aiPlayer = "white"; // AI is white
-    const humanPlayer = "black";
+    const aiPlayer = this.aiPlayer as "black" | "white";
+    const humanPlayer = aiPlayer === "white" ? "black" : "white";
 
     // Basic evaluation: piece count difference
     let score = scores[aiPlayer] - scores[humanPlayer];
@@ -385,7 +387,7 @@ export class OthelloGame {
   }
 
   private copyGame(): OthelloGame {
-    const copy = new OthelloGame(this.gameMode, this.difficulty);
+    const copy = new OthelloGame(this.gameMode, this.difficulty, this.aiPlayer);
     copy.board = this.board.map((row) => [...row]);
     copy.currentPlayer = this.currentPlayer;
     return copy;
