@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/lib/stack";
+import { ensureUserExists } from "@/lib/ensure-user";
 import { prisma } from "@/lib/prisma";
 
 interface RankedGameRequest {
@@ -17,7 +18,7 @@ function calculateElo(
   playerRating: number,
   opponentRating: number,
   result: number, // 1 for win, 0.5 for draw, 0 for loss
-  k: number = 32
+  k: number = 32,
 ): { newRating: number; change: number } {
   const expectedScore =
     1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
@@ -53,26 +54,27 @@ export async function POST(request: NextRequest) {
       whiteScore,
     } = body;
 
-    // Get both players from database
-    const [player, opponent] = await Promise.all([
-      prisma.user.findUnique({
-        where: { stackId: user.id },
-        include: { gameStats: true },
-      }),
-      prisma.user.findUnique({
-        where: { stackId: opponentStackId },
-        include: { gameStats: true },
-      }),
-    ]);
+    // Ensure the current player exists before recording the ranked match.
+    const player = await ensureUserExists(user);
 
-    if (!player || !opponent) {
-      return NextResponse.json({ error: "Player not found" }, { status: 404 });
+    const opponentStackUsers = await stackServerApp.listUsers();
+    const opponentStackUser = opponentStackUsers.find(
+      (stackUser) => stackUser.id === opponentStackId,
+    );
+
+    if (!opponentStackUser) {
+      return NextResponse.json(
+        { error: "Opponent not found" },
+        { status: 404 },
+      );
     }
+
+    const opponent = await ensureUserExists(opponentStackUser);
 
     if (!player.gameStats || !opponent.gameStats) {
       return NextResponse.json(
         { error: "Player stats not initialized" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -104,14 +106,14 @@ export async function POST(request: NextRequest) {
       blackStats.eloRating,
       whiteStats.eloRating,
       blackResult,
-      blackKFactor
+      blackKFactor,
     );
 
     const whiteEloCalc = calculateElo(
       whiteStats.eloRating,
       blackStats.eloRating,
       whiteResult,
-      whiteKFactor
+      whiteKFactor,
     );
 
     // Create ranked match record
@@ -146,14 +148,14 @@ export async function POST(request: NextRequest) {
           eloRating: blackEloCalc.newRating,
           peakEloRating: Math.max(
             blackStats.peakEloRating,
-            blackEloCalc.newRating
+            blackEloCalc.newRating,
           ),
           currentWinStreak: blackResult === 1 ? { increment: 1 } : 0,
           longestWinStreak:
             blackResult === 1
               ? Math.max(
                   blackStats.longestWinStreak,
-                  blackStats.currentWinStreak + 1
+                  blackStats.currentWinStreak + 1,
                 )
               : blackStats.longestWinStreak,
         },
@@ -171,14 +173,14 @@ export async function POST(request: NextRequest) {
           eloRating: whiteEloCalc.newRating,
           peakEloRating: Math.max(
             whiteStats.peakEloRating,
-            whiteEloCalc.newRating
+            whiteEloCalc.newRating,
           ),
           currentWinStreak: whiteResult === 1 ? { increment: 1 } : 0,
           longestWinStreak:
             whiteResult === 1
               ? Math.max(
                   whiteStats.longestWinStreak,
-                  whiteStats.currentWinStreak + 1
+                  whiteStats.currentWinStreak + 1,
                 )
               : whiteStats.longestWinStreak,
         },
@@ -204,7 +206,7 @@ export async function POST(request: NextRequest) {
     console.error("Ranked game record error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -52,7 +52,7 @@ export function useUserSync() {
             displayName: user.displayName || null,
             avatarUrl: user.profileImageUrl || null,
             bio: null,
-          })
+          }),
         );
 
         // Fetch and set game stats

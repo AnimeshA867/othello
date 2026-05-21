@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/lib/stack";
+import { ensureUserExists } from "@/lib/ensure-user";
 import { prisma } from "@/lib/prisma";
 
 interface RecordGameRequest {
@@ -24,34 +25,7 @@ export async function POST(request: NextRequest) {
     const { mode, won, draw, score, opponentScore, duration, difficulty } =
       body;
 
-    // Get or create user in database
-    let dbUser = await prisma.user.findUnique({
-      where: { stackId: user.id },
-      include: { gameStats: true },
-    });
-
-    if (!dbUser) {
-      dbUser = await prisma.user.create({
-        data: {
-          stackId: user.id,
-          email: user.primaryEmail || "",
-          username:
-            user.displayName ||
-            user.primaryEmail?.split("@")[0] ||
-            `user_${Date.now()}`,
-          displayName: user.displayName || null,
-          profile: { create: {} },
-          gameStats: { create: {} },
-        },
-        include: { gameStats: true },
-      });
-    }
-
-    if (!dbUser.gameStats) {
-      await prisma.gameStats.create({
-        data: { userId: dbUser.id },
-      });
-    }
+    const dbUser = await ensureUserExists(user);
 
     const currentStats = await prisma.gameStats.findUnique({
       where: { userId: dbUser.id },
@@ -123,7 +97,7 @@ export async function POST(request: NextRequest) {
     const currentTotalTime =
       currentStats.averageGameTime * currentStats.totalGames;
     const newAverageTime = Math.round(
-      (currentTotalTime + duration) / totalGames
+      (currentTotalTime + duration) / totalGames,
     );
     updateData.averageGameTime = newAverageTime;
 
@@ -197,7 +171,7 @@ export async function POST(request: NextRequest) {
     console.error("Game record error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

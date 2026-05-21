@@ -43,6 +43,10 @@ interface GameSidebarProps {
   isAuthenticated?: boolean;
   // Abandon mode (when both players have moved)
   showAbandon?: boolean;
+  // Undo tracking
+  undosRemaining?: number;
+  // Whether the game has actually started (moves have been made)
+  gameHasStarted?: boolean;
 }
 
 export function GameSidebar({
@@ -68,6 +72,8 @@ export function GameSidebar({
   playerElo,
   isAuthenticated = true,
   showAbandon = false,
+  undosRemaining,
+  gameHasStarted = false,
 }: GameSidebarProps) {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [joinRoomId, setJoinRoomId] = useState("");
@@ -251,7 +257,7 @@ export function GameSidebar({
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
                 }`}
                 onClick={() => onDifficultyChange("easy")}
-                disabled={gameStatus === "playing"}
+                disabled={gameHasStarted && gameStatus !== "finished"}
               >
                 Easy
               </Button>
@@ -263,7 +269,7 @@ export function GameSidebar({
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
                 }`}
                 onClick={() => onDifficultyChange("medium")}
-                disabled={gameStatus === "playing"}
+                disabled={gameHasStarted && gameStatus !== "finished"}
               >
                 Medium
               </Button>
@@ -273,11 +279,14 @@ export function GameSidebar({
                   difficulty === "hard"
                     ? "bg-red-600 hover:bg-red-700 text-white"
                     : !isAuthenticated
-                    ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
-                    : "bg-transparent border-white/30 text-white hover:bg-white/20"
+                      ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
+                      : "bg-transparent border-white/30 text-white hover:bg-white/20"
                 }`}
                 onClick={() => onDifficultyChange("hard")}
-                disabled={gameStatus === "playing" || !isAuthenticated}
+                disabled={
+                  (gameHasStarted && gameStatus !== "finished") ||
+                  !isAuthenticated
+                }
               >
                 {!isAuthenticated && <Lock className="w-3 h-3 mr-1" />}
                 Hard
@@ -288,67 +297,10 @@ export function GameSidebar({
                 🔒 Sign in to unlock hard difficulty
               </p>
             )}
-            {gameStatus === "playing" && (
+            {gameHasStarted && gameStatus !== "finished" && (
               <p className="text-xs text-gray-400 text-center mt-2">
-                Finish current game to change difficulty
+                Resign or finish the game to change difficulty
               </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Room Management for Friend Mode */}
-      {gameMode === "friend" && (
-        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm border-blue-500/30 transition-all duration-300 hover:border-blue-400/50 shadow-lg">
-          <CardHeader className="pb-2 lg:pb-3">
-            <CardTitle className="text-white text-base lg:text-lg flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-400" />
-              Room
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {roomId ? (
-              <div className="space-y-3">
-                <div className="bg-black/20 p-3 rounded-lg border border-white/10">
-                  <p className="text-xs text-gray-400 mb-2">Room ID:</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={roomId}
-                      readOnly
-                      className="bg-white/5 border-white/20 text-white font-mono text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="bg-blue-600 border-blue-500 text-white hover:bg-blue-700 hover:border-blue-400 transition-all duration-300"
-                      onClick={onCopyRoomId}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
-                  <p className="text-xs text-blue-300 text-center">
-                    💡 Share this ID with your friend to join
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-300 text-center py-3 bg-black/20 rounded-lg">
-                  🔄 Waiting for room...
-                </p>
-              </div>
-            )}
-            {onJoinRoom && !roomId && (
-              <Button
-                variant="outline"
-                className="w-full bg-blue-600 border-blue-500 text-white hover:bg-blue-700 hover:border-blue-400 transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
-                onClick={() => setShowJoinDialog(true)}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Join Another Room
-              </Button>
             )}
           </CardContent>
         </Card>
@@ -370,6 +322,11 @@ export function GameSidebar({
               disabled={!canUndo || isAiThinking}
             >
               Undo Move
+              {undosRemaining !== undefined && (
+                <span className="ml-2 text-xs opacity-70">
+                  ({undosRemaining} left)
+                </span>
+              )}
             </Button>
           )}
 

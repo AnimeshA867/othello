@@ -24,6 +24,25 @@ import { useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { getRandomBotName } from "@/lib/bot-names";
 import { useAppSelector, useAppDispatch } from "@/lib/redux/hooks";
+
+const selectMatchSession = (state: any) =>
+  state.matchSession ?? state.game?.matchSession ?? null;
+
+const selectAuthoritativeScores = (state: any) =>
+  state.matchSession?.authoritativeScores ??
+  state.game?.authoritativeScores ??
+  null;
+
+const selectAuthoritativeValidMoves = (state: any) =>
+  state.matchSession?.authoritativeValidMoves ??
+  state.game?.authoritativeValidMoves ??
+  null;
+
+const selectAuthoritativeLastMove = (state: any) =>
+  state.matchSession?.authoritativeLastMove ??
+  state.game?.authoritativeLastMove ??
+  null;
+
 import {
   setGameMode as setReduxGameMode,
   setGameType,
@@ -55,6 +74,10 @@ import {
   setShowAbandonDialog,
 } from "@/lib/redux/slices/uiSlice";
 import { TutorialDialog } from "@/components/tutorial-dialog";
+import {
+  getRankedGameOverDialogCopy,
+  getRankedGameRenderState,
+} from "./view-state";
 
 // ELO to difficulty mapping
 function eloDifficultyMap(elo: number): Difficulty {
@@ -88,44 +111,48 @@ export default function RankedGamePage() {
 
   // Redux state
   const gameMode = useAppSelector(
-    (state: any) => state.game.mode
+    (state: any) => state.game.mode,
   ) as GameMode | null;
   const userElo = useAppSelector(
-    (state: any) => state.user.gameStats?.eloRating ?? 1200
+    (state: any) => state.user.gameStats?.eloRating ?? 1200,
   );
   const botDifficulty = useAppSelector((state: any) => state.game.difficulty);
   const isLoading = useAppSelector((state: any) => state.ui.isLoading);
   const eloChange = useAppSelector((state: any) => state.game.eloChange);
   const botName = useAppSelector((state: any) => state.game.botName ?? "");
   const showGameOverDialog = useAppSelector(
-    (state: any) => state.ui.showGameOverDialog
+    (state: any) => state.ui.showGameOverDialog,
   );
 
   const showResignDialog = useAppSelector(
-    (state: any) => state.ui.showResignDialog
+    (state: any) => state.ui.showResignDialog,
   );
   const showDrawOfferDialog = useAppSelector(
-    (state: any) => state.ui.showDrawOfferDialog
+    (state: any) => state.ui.showDrawOfferDialog,
   );
   const showRematchOfferDialog = useAppSelector(
-    (state: any) => state.ui.showRematchOfferDialog
+    (state: any) => state.ui.showRematchOfferDialog,
   );
   const drawOfferedByPlayer = useAppSelector(
-    (state: any) => state.game.drawOfferedByPlayer
+    (state: any) => state.game.drawOfferedByPlayer,
   );
 
   const showAbandonDialog = useAppSelector(
-    (state: any) => state.ui.showAbandonDialog
+    (state: any) => state.ui.showAbandonDialog,
   );
   const showAuthDialog = useAppSelector(
-    (state: any) => state.ui.showAuthPrompt
+    (state: any) => state.ui.showAuthPrompt,
   );
   const isMatchmaking = useAppSelector(
-    (state: any) => state.game.isMatchmaking
+    (state: any) => state.game.isMatchmaking,
   );
   const hasCompletedTutorial = useAppSelector(
-    (state: any) => state.user.hasCompletedTutorial
+    (state: any) => state.user.hasCompletedTutorial,
   );
+  const matchSession = useAppSelector(selectMatchSession);
+  const authoritativeScores = useAppSelector(selectAuthoritativeScores);
+  const authoritativeValidMoves = useAppSelector(selectAuthoritativeValidMoves);
+  const authoritativeLastMove = useAppSelector(selectAuthoritativeLastMove);
 
   // Local component state (UI-only)
   const [moveCount, setMoveCount] = useState(0);
@@ -172,6 +199,22 @@ export default function RankedGamePage() {
 
   // Select the active game state
   const gameState = gameMode === "multiplayer" ? mpGameState : aiGameState;
+  const {
+    boardForRender,
+    currentPlayerForRender,
+    isGameOverForRender,
+    winnerForRender,
+    scoresForRender,
+    validMovesForRender,
+    lastMoveForRender,
+  } = getRankedGameRenderState({
+    gameMode: (gameMode ?? "ai") as GameMode,
+    matchSession,
+    gameState,
+    authoritativeScores,
+    authoritativeValidMoves,
+    authoritativeLastMove,
+  });
 
   // Track move count
   useEffect(() => {
@@ -350,7 +393,7 @@ export default function RankedGamePage() {
       if (enoughMovesForPenalty && !gameRecordedRef.current) {
         // Apply disconnect penalty
         const duration = Math.floor(
-          (Date.now() - gameStartTimeRef.current) / 1000
+          (Date.now() - gameStartTimeRef.current) / 1000,
         );
         const actualMoves = moveCount - 4;
 
@@ -372,7 +415,7 @@ export default function RankedGamePage() {
                 updateElo({
                   change: data.eloChange,
                   newElo: data.newElo,
-                })
+                }),
               );
               toast({
                 title: "Disconnected",
@@ -388,7 +431,7 @@ export default function RankedGamePage() {
       } else if (!enoughMovesForPenalty && !gameRecordedRef.current) {
         // Early disconnect, treat as abandon (no penalty)
         const duration = Math.floor(
-          (Date.now() - gameStartTimeRef.current) / 1000
+          (Date.now() - gameStartTimeRef.current) / 1000,
         );
         const actualMoves = moveCount - 4;
 
@@ -425,7 +468,7 @@ export default function RankedGamePage() {
   useEffect(() => {
     if (!user) {
       const gamesPlayed = parseInt(
-        localStorage.getItem("guestGamesPlayed") || "0"
+        localStorage.getItem("guestGamesPlayed") || "0",
       );
       if (gamesPlayed >= 3 && gameState.isGameOver) {
         dispatch(setShowAuthPrompt(true));
@@ -447,12 +490,12 @@ export default function RankedGamePage() {
 
       const winner = gameState.winner;
       const duration = Math.floor(
-        (Date.now() - gameStartTimeRef.current) / 1000
+        (Date.now() - gameStartTimeRef.current) / 1000,
       );
 
       if (!user) {
         const gamesPlayed = parseInt(
-          localStorage.getItem("guestGamesPlayed") || "0"
+          localStorage.getItem("guestGamesPlayed") || "0",
         );
         localStorage.setItem("guestGamesPlayed", (gamesPlayed + 1).toString());
       } else {
@@ -529,7 +572,7 @@ export default function RankedGamePage() {
         const won = winner === myRole;
         const draw = winner === "draw";
         const duration = Math.floor(
-          (Date.now() - gameStartTimeRef.current) / 1000
+          (Date.now() - gameStartTimeRef.current) / 1000,
         );
 
         // For real multiplayer, we don't calculate ELO here (server does it)
@@ -773,7 +816,7 @@ export default function RankedGamePage() {
         updateElo({
           change: calculatedChange,
           newElo: userElo + calculatedChange,
-        })
+        }),
       );
       dispatch(incrementGameStats({ won: false, draw: false, mode: "ranked" }));
 
@@ -825,57 +868,60 @@ export default function RankedGamePage() {
       // AI mode - intelligent draw acceptance based on game state
       dispatch(offerDraw());
 
-      setTimeout(() => {
-        // Player is black, bot is white
-        const playerScore = gameState.blackScore;
-        const botScore = gameState.whiteScore;
-        const scoreDiff = botScore - playerScore; // Positive means bot is winning
+      setTimeout(
+        () => {
+          // Player is black, bot is white
+          const playerScore = gameState.blackScore;
+          const botScore = gameState.whiteScore;
+          const scoreDiff = botScore - playerScore; // Positive means bot is winning
 
-        // Calculate remaining empty squares
-        const totalPieces = playerScore + botScore;
-        const remainingSquares = 64 - totalPieces;
+          // Calculate remaining empty squares
+          const totalPieces = playerScore + botScore;
+          const remainingSquares = 64 - totalPieces;
 
-        // Bot's decision logic:
-        // 1. If bot is winning by a good margin, decline
-        // 2. If bot is losing, accept (better than losing)
-        // 3. If close game with few moves left, accept
-        // 4. If early/mid game and tied, small chance to accept
+          // Bot's decision logic:
+          // 1. If bot is winning by a good margin, decline
+          // 2. If bot is losing, accept (better than losing)
+          // 3. If close game with few moves left, accept
+          // 4. If early/mid game and tied, small chance to accept
 
-        let shouldAccept = false;
+          let shouldAccept = false;
 
-        if (scoreDiff < -5) {
-          // Bot is losing by 5+ pieces - likely to accept
-          shouldAccept = Math.random() < 0.85;
-        } else if (scoreDiff < -2) {
-          // Bot is losing by 2-4 pieces - might accept
-          shouldAccept = Math.random() < 0.6;
-        } else if (scoreDiff > 5) {
-          // Bot is winning by 5+ pieces - unlikely to accept
-          shouldAccept = Math.random() < 0.15;
-        } else if (scoreDiff > 2) {
-          // Bot is winning by 2-4 pieces - might decline
-          shouldAccept = Math.random() < 0.3;
-        } else {
-          // Close game (-2 to +2)
-          if (remainingSquares < 10) {
-            // Late game, close score - more likely to accept
-            shouldAccept = Math.random() < 0.5;
+          if (scoreDiff < -5) {
+            // Bot is losing by 5+ pieces - likely to accept
+            shouldAccept = Math.random() < 0.85;
+          } else if (scoreDiff < -2) {
+            // Bot is losing by 2-4 pieces - might accept
+            shouldAccept = Math.random() < 0.6;
+          } else if (scoreDiff > 5) {
+            // Bot is winning by 5+ pieces - unlikely to accept
+            shouldAccept = Math.random() < 0.15;
+          } else if (scoreDiff > 2) {
+            // Bot is winning by 2-4 pieces - might decline
+            shouldAccept = Math.random() < 0.3;
           } else {
-            // Early/mid game, close score - less likely
-            shouldAccept = Math.random() < 0.25;
+            // Close game (-2 to +2)
+            if (remainingSquares < 10) {
+              // Late game, close score - more likely to accept
+              shouldAccept = Math.random() < 0.5;
+            } else {
+              // Early/mid game, close score - less likely
+              shouldAccept = Math.random() < 0.25;
+            }
           }
-        }
 
-        if (shouldAccept) {
-          handleAcceptDraw();
-        } else {
-          dispatch(cancelDrawOffer());
-          toast({
-            title: "Draw Declined",
-            description: `${botName} declined the draw offer`,
-          });
-        }
-      }, 2000 + Math.random() * 1000);
+          if (shouldAccept) {
+            handleAcceptDraw();
+          } else {
+            dispatch(cancelDrawOffer());
+            toast({
+              title: "Draw Declined",
+              description: `${botName} declined the draw offer`,
+            });
+          }
+        },
+        2000 + Math.random() * 1000,
+      );
 
       toast({
         title: "Draw Offered",
@@ -908,14 +954,14 @@ export default function RankedGamePage() {
           updateElo({
             change: calculatedChange,
             newElo: userElo + calculatedChange,
-          })
+          }),
         );
         dispatch(
-          incrementGameStats({ won: false, draw: true, mode: "ranked" })
+          incrementGameStats({ won: false, draw: true, mode: "ranked" }),
         );
 
         const duration = Math.floor(
-          (Date.now() - gameStartTimeRef.current) / 1000
+          (Date.now() - gameStartTimeRef.current) / 1000,
         );
 
         fetch("/api/games/record", {
@@ -1026,16 +1072,16 @@ export default function RankedGamePage() {
   }
 
   const isSearching =
-    !gameState.isGameOver &&
+    !isGameOverForRender &&
     moveCount === 0 &&
     (websocketState.isWaitingForPlayer ||
       (!websocketState.isConnected && gameMode === "ai" && !botName));
   const isDisabled =
-    gameState.isGameOver ||
+    isGameOverForRender ||
     (gameMode === "ai" && isAiThinking) ||
     (gameMode === "multiplayer" &&
       (mpGameState.isWaitingForPlayer ||
-        websocketState.playerRole !== gameState.currentPlayer)) ||
+        websocketState.playerRole !== currentPlayerForRender)) ||
     isSearching ||
     isGameEnding;
 
@@ -1187,17 +1233,17 @@ export default function RankedGamePage() {
             </div>
 
             <OthelloBoard
-              board={gameState.board}
+              board={boardForRender}
               validMoves={
                 !isDisabled &&
                 ((gameMode === "multiplayer" &&
-                  websocketState.playerRole === gameState.currentPlayer) ||
+                  websocketState.playerRole === currentPlayerForRender) ||
                   gameMode === "ai")
-                  ? gameState.validMoves
+                  ? validMovesForRender
                   : []
               }
-              lastMove={gameState.lastMove}
-              currentPlayer={gameState.currentPlayer}
+              lastMove={lastMoveForRender}
+              currentPlayer={currentPlayerForRender}
               onMove={handleMove}
               disabled={isDisabled}
             />
@@ -1206,16 +1252,18 @@ export default function RankedGamePage() {
 
         <div className="w-full lg:w-80 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-700">
           <GameSidebar
-            currentPlayer={gameState.currentPlayer as "black" | "white"}
+            currentPlayer={
+              (currentPlayerForRender as "black" | "white") || "black"
+            }
             playerColor={websocketState.playerRole as "black" | "white"}
-            blackScore={gameState.blackScore}
-            whiteScore={gameState.whiteScore}
+            blackScore={scoresForRender.blackScore}
+            whiteScore={scoresForRender.whiteScore}
             playerName={
               user?.displayName || user?.primaryEmail?.split("@")[0] || "You"
             }
             opponentName={getOpponentName()}
             gameMode="ranked"
-            gameStatus={gameState.isGameOver ? "finished" : "playing"}
+            gameStatus={isGameOverForRender ? "finished" : "playing"}
             onResign={handleResign}
             onDraw={handleOfferDraw}
             onRestart={handleRestart}
@@ -1223,7 +1271,7 @@ export default function RankedGamePage() {
             showAbandon={canAbandon}
           />
 
-          {!isSearching && !gameState.isGameOver && (
+          {!isSearching && !isGameOverForRender && (
             <div className="space-y-2 mt-4">
               {/* <Button
                 variant="outline"
@@ -1248,7 +1296,7 @@ export default function RankedGamePage() {
           )}
 
           {eloChange !== null &&
-            gameState.isGameOver &&
+            isGameOverForRender &&
             user &&
             gameMode === "ai" && (
               <div
@@ -1256,24 +1304,24 @@ export default function RankedGamePage() {
                   eloChange > 0
                     ? "bg-green-500/10 border-green-500/30"
                     : eloChange < 0
-                    ? "bg-red-500/10 border-red-500/30"
-                    : "bg-gray-500/10 border-gray-500/30"
+                      ? "bg-red-500/10 border-red-500/30"
+                      : "bg-gray-500/10 border-gray-500/30"
                 }`}
               >
                 <p className="text-sm font-semibold mb-2 text-white">
                   {eloChange > 0
                     ? "🎉 ELO Gained!"
                     : eloChange < 0
-                    ? "😔 ELO Lost"
-                    : "Draw"}
+                      ? "😔 ELO Lost"
+                      : "Draw"}
                 </p>
                 <p
                   className={`text-2xl font-bold ${
                     eloChange > 0
                       ? "text-green-400"
                       : eloChange < 0
-                      ? "text-red-400"
-                      : "text-gray-400"
+                        ? "text-red-400"
+                        : "text-gray-400"
                   }`}
                 >
                   {eloChange > 0 ? "+" : ""}
@@ -1294,7 +1342,7 @@ export default function RankedGamePage() {
               <Button
                 size="sm"
                 className="w-full"
-                onClick={() => router.push("/auth/signin")}
+                onClick={() => router.push("/handler/sign-in")}
               >
                 Sign In to Track Progress
               </Button>
@@ -1305,20 +1353,22 @@ export default function RankedGamePage() {
 
       {/* Game Over Dialog */}
       <Dialog
-        open={showGameOverDialog && gameState.isGameOver}
+        open={showGameOverDialog && isGameOverForRender}
         onOpenChange={(open) => dispatch(setShowGameOverDialog(open))}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Game Over</DialogTitle>
             <DialogDescription>
-              {gameState.winner === "draw"
-                ? "The game ended in a draw!"
-                : (gameMode === "multiplayer" &&
-                    gameState.winner === websocketState.playerRole) ||
-                  (gameMode === "ai" && gameState.winner === "black")
-                ? `Congratulations! You defeated ${getOpponentName()}!`
-                : `${getOpponentName()} won this game. Better luck next time!`}
+              {getRankedGameOverDialogCopy({
+                winnerForRender,
+                gameMode: (gameMode ?? "ai") as GameMode,
+                playerRole: websocketState.playerRole as
+                  | "black"
+                  | "white"
+                  | undefined,
+                opponentName: getOpponentName(),
+              })}
             </DialogDescription>
           </DialogHeader>
           {user && eloChange !== null && gameMode === "ai" && (
@@ -1330,8 +1380,8 @@ export default function RankedGamePage() {
                     eloChange > 0
                       ? "text-green-500"
                       : eloChange < 0
-                      ? "text-red-500"
-                      : "text-gray-500"
+                        ? "text-red-500"
+                        : "text-gray-500"
                   }`}
                 >
                   {eloChange > 0 ? "+" : ""}
@@ -1494,7 +1544,7 @@ export default function RankedGamePage() {
             >
               Continue as Guest
             </Button>
-            <Button onClick={() => router.push("/auth/signin")}>
+            <Button onClick={() => router.push("/handler/sign-in")}>
               Sign In Now
             </Button>
           </DialogFooter>
@@ -1517,7 +1567,7 @@ export default function RankedGamePage() {
               mpGameState.chatMessages
                 ?.filter(
                   (msg): msg is typeof msg & { sender: "black" | "white" } =>
-                    msg.sender === "black" || msg.sender === "white"
+                    msg.sender === "black" || msg.sender === "white",
                 )
                 .map((msg) => ({
                   ...msg,
