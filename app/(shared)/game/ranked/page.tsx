@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowLeft, RotateCcw, Trophy, Loader2, Copy } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -24,21 +24,90 @@ import { useUser } from "@stackframe/stack";
 import { useRouter } from "next/navigation";
 import { getRandomBotName } from "@/lib/bot-names";
 import { useAppSelector, useAppDispatch } from "@/lib/redux/hooks";
+import type { RootState } from "@/lib/redux/store";
+import type { GameStats } from "@/lib/redux/slices/userSlice";
+import type { Player, Position } from "@/lib/othello-game";
 
-const selectMatchSession = (state: any) =>
+type RankedMatchSession = {
+  board?: Player[][];
+  currentPlayer?: Player;
+  isGameOver?: boolean;
+  winner?: "black" | "white" | "draw" | null;
+  blackScore?: number;
+  whiteScore?: number;
+  validMoves?: Position[];
+  lastMove?: Position;
+  authoritativeScores?: {
+    blackScore: number;
+    whiteScore: number;
+  } | null;
+  authoritativeValidMoves?: Array<{
+    row: number;
+    col: number;
+  }> | null;
+  authoritativeLastMove?: {
+    row: number;
+    col: number;
+  } | null;
+  isWaitingForPlayer?: boolean;
+  opponentName?: string | null;
+  drawOfferedBy?: string | null;
+  rematchOfferedBy?: string | null;
+  roomId?: string | null;
+  chatMessages?: Array<{
+    sender?: string;
+    [key: string]: unknown;
+  }> | null;
+};
+
+type RankedStoreState = RootState & {
+  matchSession?: RankedMatchSession | null;
+  game: RootState["game"] & {
+    matchSession?: RankedMatchSession | null;
+    authoritativeScores?: {
+      blackScore: number;
+      whiteScore: number;
+    } | null;
+    authoritativeValidMoves?: Array<{
+      row: number;
+      col: number;
+    }> | null;
+    authoritativeLastMove?: {
+      row: number;
+      col: number;
+    } | null;
+  };
+};
+
+type ProfileApiResponse = {
+  stats?: GameStats | null;
+};
+
+type AchievementUnlock = {
+  achievement: {
+    name: string;
+    description: string;
+  };
+};
+
+type AchievementsApiResponse = {
+  newlyUnlocked?: AchievementUnlock[];
+};
+
+const selectMatchSession = (state: RankedStoreState) =>
   state.matchSession ?? state.game?.matchSession ?? null;
 
-const selectAuthoritativeScores = (state: any) =>
+const selectAuthoritativeScores = (state: RankedStoreState) =>
   state.matchSession?.authoritativeScores ??
   state.game?.authoritativeScores ??
   null;
 
-const selectAuthoritativeValidMoves = (state: any) =>
+const selectAuthoritativeValidMoves = (state: RankedStoreState) =>
   state.matchSession?.authoritativeValidMoves ??
   state.game?.authoritativeValidMoves ??
   null;
 
-const selectAuthoritativeLastMove = (state: any) =>
+const selectAuthoritativeLastMove = (state: RankedStoreState) =>
   state.matchSession?.authoritativeLastMove ??
   state.game?.authoritativeLastMove ??
   null;
@@ -52,8 +121,6 @@ import {
   startMatchmaking as reduxStartMatchmaking,
   stopMatchmaking,
   setOpponent,
-  startGame as reduxStartGame,
-  setGameRecorded,
   offerDraw,
   cancelDrawOffer,
   resetGame,
@@ -111,43 +178,48 @@ export default function RankedGamePage() {
 
   // Redux state
   const gameMode = useAppSelector(
-    (state: any) => state.game.mode,
+    (state: RankedStoreState) => state.game.mode,
   ) as GameMode | null;
   const userElo = useAppSelector(
-    (state: any) => state.user.gameStats?.eloRating ?? 1200,
+    (state: RankedStoreState) => state.user.gameStats?.eloRating ?? 1200,
   );
-  const botDifficulty = useAppSelector((state: any) => state.game.difficulty);
-  const isLoading = useAppSelector((state: any) => state.ui.isLoading);
-  const eloChange = useAppSelector((state: any) => state.game.eloChange);
-  const botName = useAppSelector((state: any) => state.game.botName ?? "");
+  const botDifficulty = useAppSelector(
+    (state: RankedStoreState) => state.game.difficulty,
+  );
+  const isLoading = useAppSelector(
+    (state: RankedStoreState) => state.ui.isLoading,
+  );
+  const eloChange = useAppSelector(
+    (state: RankedStoreState) => state.game.eloChange,
+  );
+  const botName = useAppSelector(
+    (state: RankedStoreState) => state.game.botName ?? "",
+  );
   const showGameOverDialog = useAppSelector(
-    (state: any) => state.ui.showGameOverDialog,
+    (state: RankedStoreState) => state.ui.showGameOverDialog,
   );
 
   const showResignDialog = useAppSelector(
-    (state: any) => state.ui.showResignDialog,
+    (state: RankedStoreState) => state.ui.showResignDialog,
   );
   const showDrawOfferDialog = useAppSelector(
-    (state: any) => state.ui.showDrawOfferDialog,
+    (state: RankedStoreState) => state.ui.showDrawOfferDialog,
   );
   const showRematchOfferDialog = useAppSelector(
-    (state: any) => state.ui.showRematchOfferDialog,
+    (state: RankedStoreState) => state.ui.showRematchOfferDialog,
   );
   const drawOfferedByPlayer = useAppSelector(
-    (state: any) => state.game.drawOfferedByPlayer,
+    (state: RankedStoreState) => state.game.drawOfferedByPlayer,
   );
 
   const showAbandonDialog = useAppSelector(
-    (state: any) => state.ui.showAbandonDialog,
+    (state: RankedStoreState) => state.ui.showAbandonDialog,
   );
   const showAuthDialog = useAppSelector(
-    (state: any) => state.ui.showAuthPrompt,
-  );
-  const isMatchmaking = useAppSelector(
-    (state: any) => state.game.isMatchmaking,
+    (state: RankedStoreState) => state.ui.showAuthPrompt,
   );
   const hasCompletedTutorial = useAppSelector(
-    (state: any) => state.user.hasCompletedTutorial,
+    (state: RankedStoreState) => state.user.hasCompletedTutorial,
   );
   const matchSession = useAppSelector(selectMatchSession);
   const authoritativeScores = useAppSelector(selectAuthoritativeScores);
@@ -174,9 +246,7 @@ export default function RankedGamePage() {
     websocketState,
     gameState: mpGameState,
     makeMove: mpMakeMove,
-    restartGame: mpRestartGame,
     resignGame: mpResignGame,
-    abandonGame: mpAbandonGame,
     joinRandomGame,
     leaveRoom,
     offerDraw: mpOfferDraw,
@@ -242,7 +312,7 @@ export default function RankedGamePage() {
 
   // Initialize game mode to "searching" on mount
   useEffect(() => {
-    dispatch(setReduxGameMode("ai" as any)); // Use "ai" as temporary mode for searching
+    dispatch(setReduxGameMode("ai")); // Use "ai" as temporary mode for searching
     dispatch(setGameType("ranked"));
     dispatch(setLoading({ isLoading: true }));
   }, [dispatch]);
@@ -259,7 +329,7 @@ export default function RankedGamePage() {
       try {
         const response = await fetch("/api/profile");
         if (response.ok) {
-          const data = await response.json();
+          const data = (await response.json()) as ProfileApiResponse;
           const elo = data.stats?.eloRating || 1200;
 
           // Update Redux with game stats
@@ -277,23 +347,10 @@ export default function RankedGamePage() {
     }
 
     fetchUserElo();
-  }, [user]);
-
-  // Auto-start matchmaking when loaded
-  useEffect(() => {
-    // Don't start matchmaking if user is not authenticated
-    if (!user) {
-      return;
-    }
-
-    if (!isLoading && !hasStartedMatchmaking) {
-      setHasStartedMatchmaking(true);
-      startMatchmaking();
-    }
-  }, [isLoading, hasStartedMatchmaking, user]);
+  }, [user, dispatch]);
 
   // Handle matchmaking - wait 3 seconds for a player, then use AI
-  const startMatchmaking = () => {
+  const startMatchmaking = useCallback(() => {
     dispatch(reduxStartMatchmaking()); // Start matchmaking in Redux
     dispatch(setReduxGameMode("ai")); // Set to "ai" initially (will be overridden if multiplayer found)
     dispatch(setGameType("ranked"));
@@ -330,7 +387,27 @@ export default function RankedGamePage() {
         // });
       }
     }, 3000);
-  };
+  }, [
+    dispatch,
+    user,
+    joinRandomGame,
+    leaveRoom,
+    mpGameState.isWaitingForPlayer,
+    websocketState.isConnected,
+  ]);
+
+  // Auto-start matchmaking when loaded
+  useEffect(() => {
+    // Don't start matchmaking if user is not authenticated
+    if (!user) {
+      return;
+    }
+
+    if (!isLoading && !hasStartedMatchmaking) {
+      setHasStartedMatchmaking(true);
+      startMatchmaking();
+    }
+  }, [isLoading, hasStartedMatchmaking, user, startMatchmaking]);
 
   // Check if multiplayer game started
   useEffect(() => {
@@ -525,10 +602,10 @@ export default function RankedGamePage() {
           }),
         })
           .then(() => fetch("/api/achievements", { method: "POST" }))
-          .then((res) => res.json())
-          .then((data) => {
+          .then(async (res) => {
+            const data = (await res.json()) as AchievementsApiResponse;
             if (data.newlyUnlocked && data.newlyUnlocked.length > 0) {
-              data.newlyUnlocked.forEach((achievement: any) => {
+              data.newlyUnlocked.forEach((achievement) => {
                 toast({
                   title: "🏆 Achievement Unlocked!",
                   description: `${achievement.achievement.name}: ${achievement.achievement.description}`,
@@ -552,6 +629,7 @@ export default function RankedGamePage() {
     userElo,
     botDifficulty,
     toast,
+    dispatch,
   ]);
 
   // Record game result for multiplayer mode
@@ -591,10 +669,10 @@ export default function RankedGamePage() {
           }),
         })
           .then(() => fetch("/api/achievements", { method: "POST" }))
-          .then((res) => res.json())
-          .then((data) => {
+          .then(async (res) => {
+            const data = (await res.json()) as AchievementsApiResponse;
             if (data.newlyUnlocked && data.newlyUnlocked.length > 0) {
-              data.newlyUnlocked.forEach((achievement: any) => {
+              data.newlyUnlocked.forEach((achievement) => {
                 toast({
                   title: "🏆 Achievement Unlocked!",
                   description: `${achievement.achievement.name}: ${achievement.achievement.description}`,
@@ -617,6 +695,7 @@ export default function RankedGamePage() {
     websocketState.playerRole,
     user,
     toast,
+    dispatch,
   ]);
 
   // Show draw offer dialog for multiplayer
@@ -1518,7 +1597,7 @@ export default function RankedGamePage() {
           <DialogHeader>
             <DialogTitle>🎮 Enjoying Ranked Mode?</DialogTitle>
             <DialogDescription>
-              You've played 3 ranked matches as a guest! Sign in to:
+              You&apos;ve played 3 ranked matches as a guest! Sign in to:
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
