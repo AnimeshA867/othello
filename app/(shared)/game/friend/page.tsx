@@ -28,6 +28,9 @@ import {
 } from "@/lib/redux/slices/uiSlice";
 import { incrementGameStats } from "@/lib/redux/slices/userSlice";
 import { setGameType } from "@/lib/redux/slices/gameSlice";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function FriendGamePage() {
   const {
@@ -533,7 +536,34 @@ export default function FriendGamePage() {
                     variant="outline"
                     className="bg-blue-500/20 text-blue-300"
                   >
-                    Room: {gameState.roomId}
+
+                    <HoverCard openDelay={10} closeDelay={100}>
+                      <HoverCardTrigger asChild>
+                        <Button variant="link">Room: {gameState.roomId}</Button>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="flex w-64 flex-col gap-0.5">
+
+                        <div className="p-3 rounded-lg ">
+                          <p className="text-xs text-gray-400 mb-2">Room ID:</p>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={gameState.roomId}
+                              readOnly
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={handleCopyRoomId}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+
+                      </HoverCardContent>
+                    </HoverCard>
+
                   </Badge>
                 )}
                 {gameState.isWaitingForPlayer && (
@@ -551,8 +581,8 @@ export default function FriendGamePage() {
               board={gameState.board}
               validMoves={
                 websocketState.playerRole === gameState.currentPlayer &&
-                !gameState.isGameOver &&
-                !isGameEnding
+                  !gameState.isGameOver &&
+                  !isGameEnding
                   ? gameState.validMoves
                   : []
               }
@@ -582,7 +612,6 @@ export default function FriendGamePage() {
             gameStatus={gameState.isGameOver ? "finished" : "playing"}
             onResign={handleResign}
             onDraw={handleOfferDraw}
-            roomId={gameState.roomId ?? undefined}
             onCopyRoomId={handleCopyRoomId}
             onJoinRoom={handleJoinRoomFromSidebar}
             showAbandon={canAbandon}
@@ -629,11 +658,10 @@ export default function FriendGamePage() {
           <div className="grid gap-4 py-4">
             <Button
               onClick={handleCreateRoom}
-              className={`w-full ${
-                !user
-                  ? "bg-blue-600/50 hover:bg-blue-700/50 text-white relative"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
+              className={`w-full ${!user
+                ? "bg-blue-600/50 hover:bg-blue-700/50 text-white relative"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
             >
               {!user && <Lock className="w-4 h-4 mr-2" />}
               Create New Room
@@ -726,8 +754,8 @@ export default function FriendGamePage() {
               {gameState.winner === "draw"
                 ? "The game ended in a draw!"
                 : gameState.winner === websocketState.playerRole
-                ? "Congratulations! You won the game!"
-                : "You lost this game. Better luck next time!"}
+                  ? "Congratulations! You won the game!"
+                  : "You lost this game. Better luck next time!"}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-between mt-4">

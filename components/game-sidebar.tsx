@@ -251,11 +251,10 @@ export function GameSidebar({
             <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={difficulty === "easy" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 ${
-                  difficulty === "easy"
+                className={`text-xs lg:text-sm transition-all duration-300 ${difficulty === "easy"
                     ? "bg-green-600 hover:bg-green-700 text-white"
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                }`}
+                  }`}
                 onClick={() => onDifficultyChange("easy")}
                 disabled={gameHasStarted && gameStatus !== "finished"}
               >
@@ -263,11 +262,10 @@ export function GameSidebar({
               </Button>
               <Button
                 variant={difficulty === "medium" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 ${
-                  difficulty === "medium"
+                className={`text-xs lg:text-sm transition-all duration-300 ${difficulty === "medium"
                     ? "bg-yellow-600 hover:bg-yellow-700 text-white"
                     : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                }`}
+                  }`}
                 onClick={() => onDifficultyChange("medium")}
                 disabled={gameHasStarted && gameStatus !== "finished"}
               >
@@ -275,13 +273,12 @@ export function GameSidebar({
               </Button>
               <Button
                 variant={difficulty === "hard" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 relative ${
-                  difficulty === "hard"
+                className={`text-xs lg:text-sm transition-all duration-300 relative ${difficulty === "hard"
                     ? "bg-red-600 hover:bg-red-700 text-white"
                     : !isAuthenticated
-                    ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
-                    : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                }`}
+                      ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
+                      : "bg-transparent border-white/30 text-white hover:bg-white/20"
+                  }`}
                 onClick={() => onDifficultyChange("hard")}
                 disabled={(gameHasStarted && gameStatus !== "finished") || !isAuthenticated}
               >
@@ -303,62 +300,7 @@ export function GameSidebar({
         </Card>
       )}
 
-      {/* Room Management for Friend Mode */}
-      {gameMode === "friend" && (
-        <Card className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm border-blue-500/30 transition-all duration-300 hover:border-blue-400/50 shadow-lg">
-          <CardHeader className="pb-2 lg:pb-3">
-            <CardTitle className="text-white text-base lg:text-lg flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-400" />
-              Room
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {roomId ? (
-              <div className="space-y-3">
-                <div className="bg-black/20 p-3 rounded-lg border border-white/10">
-                  <p className="text-xs text-gray-400 mb-2">Room ID:</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={roomId}
-                      readOnly
-                      className="bg-white/5 border-white/20 text-white font-mono text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="bg-blue-600 border-blue-500 text-white hover:bg-blue-700 hover:border-blue-400 transition-all duration-300"
-                      onClick={onCopyRoomId}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
-                  <p className="text-xs text-blue-300 text-center">
-                    💡 Share this ID with your friend to join
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-300 text-center py-3 bg-black/20 rounded-lg">
-                  🔄 Waiting for room...
-                </p>
-              </div>
-            )}
-            {onJoinRoom && !roomId && (
-              <Button
-                variant="outline"
-                className="w-full bg-blue-600 border-blue-500 text-white hover:bg-blue-700 hover:border-blue-400 transition-all duration-300 transform hover:scale-105 text-sm lg:text-base"
-                onClick={() => setShowJoinDialog(true)}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Join Another Room
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Game Controls */}
       <Card className="bg-white/10 backdrop-blur-sm border-white/20 transition-all duration-300 hover:bg-white/15">
