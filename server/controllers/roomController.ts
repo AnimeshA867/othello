@@ -13,6 +13,16 @@ import { v4 as uuidv4 } from "uuid";
 const rooms = new Map<string, Room>();
 const playerToRoom = new Map<string, string>();
 
+function assignRandomMatchColors(room: Room): void {
+  if (room.players.length !== 2) {
+    return;
+  }
+
+  const firstIsBlack = Math.random() < 0.5;
+  room.players[0].color = firstIsBlack ? "black" : "white";
+  room.players[1].color = firstIsBlack ? "white" : "black";
+}
+
 /**
  * Find a room with matching rank set type and the closest player rank,
  * or create a new room if none is found.
@@ -43,18 +53,15 @@ export async function findOrCreateRoom(
     // Join room with closest rank
     const room = availableRooms[0];
 
-    // Second player gets the opposite color of the first
-    const firstPlayerColor = room.players[0]?.color || "black";
-    const secondColor = firstPlayerColor === "black" ? "white" : "black";
-
     const player: Player = {
       id: userId,
       name: playerName,
       rank: userRank,
-      color: secondColor,
+      color: null,
     };
 
     room.players.push(player);
+    assignRandomMatchColors(room);
     room.status = "active";
     playerToRoom.set(userId, room.roomId);
 
@@ -64,15 +71,11 @@ export async function findOrCreateRoom(
     // Create new room
     const roomId = generateRoomId();
 
-    // Randomly assign color to first player
-    const firstColor: "black" | "white" =
-      Math.random() < 0.5 ? "black" : "white";
-
     const player: Player = {
       id: userId,
       name: playerName,
       rank: userRank,
-      color: firstColor,
+      color: null,
     };
 
     const room: Room = {
@@ -106,14 +109,12 @@ export function createRoom(
     `Creating new room with ID ${roomId} for player ${playerName || userId}`,
   );
 
-  // Randomly assign color to first player
-  const firstColor = Math.random() < 0.5 ? "black" : "white";
-
+  // No color assigned yet — assigned when second player joins via assignRandomMatchColors
   const player: Player = {
     id: userId,
     name: playerName,
     rank: userRank,
-    color: firstColor,
+    color: null,
   };
 
   const room: Room = {
@@ -174,19 +175,15 @@ export function joinRoom(
     throw new Error("Invalid room ID or room is full");
   }
 
-  // Second player gets the opposite color of the first
-  const firstPlayerColor = room.players[0]?.color || "black";
-  const secondColor: "black" | "white" =
-    firstPlayerColor === "black" ? "white" : "black";
-
   const player: Player = {
     id: userId,
     name: playerName,
     rank: userRank,
-    color: secondColor,
+    color: null,
   };
 
   room.players.push(player);
+  assignRandomMatchColors(room);
   room.status = "active";
   playerToRoom.set(userId, roomId);
 

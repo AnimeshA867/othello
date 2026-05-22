@@ -15,6 +15,10 @@ export function useOthelloGame(
   playerColor: "black" | "white" = "black",
 ) {
   const aiColor = playerColor === "black" ? "white" : "black";
+  // Ref to always hold the latest aiColor — avoids stale closures in callbacks
+  const aiColorRef = useRef(aiColor);
+  aiColorRef.current = aiColor;
+
   const [currentDifficulty, setCurrentDifficulty] = useState(difficulty);
   const [game] = useState(
     () => new OthelloGame(gameMode, currentDifficulty, aiColor),
@@ -33,7 +37,7 @@ export function useOthelloGame(
     const currentGameState = game.getGameState();
     if (
       gameMode === "ai" &&
-      currentGameState.currentPlayer === aiColor &&
+      currentGameState.currentPlayer === aiColorRef.current &&
       !currentGameState.isGameOver
     ) {
       setIsAiThinking(true);
@@ -48,16 +52,16 @@ export function useOthelloGame(
         setIsAiThinking(false);
       }, 1000);
     }
-  }, [game, gameMode, aiColor, updateGameState]);
+  }, [game, gameMode, updateGameState]);
 
   // Start the game explicitly (needed when player is white so AI goes first)
   const startGame = useCallback(() => {
     setGameStarted(true);
     // If AI goes first (player is white, AI is black), trigger AI move
-    if (aiColor === "black") {
+    if (aiColorRef.current === "black") {
       triggerAiMoveIfNeeded();
     }
-  }, [aiColor, triggerAiMoveIfNeeded]);
+  }, [triggerAiMoveIfNeeded]);
 
   const makeMove = useCallback(
     async (row: number, col: number) => {
@@ -95,6 +99,9 @@ export function useOthelloGame(
           : newPlayerColor === "white"
             ? "black"
             : aiColor;
+
+      // Eagerly update the ref so startGame/triggerAiMoveIfNeeded read the correct color
+      aiColorRef.current = newAiColor;
 
       setCurrentDifficulty(targetDifficulty);
       const newGame = new OthelloGame(gameMode, targetDifficulty, newAiColor);

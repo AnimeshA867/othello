@@ -4,7 +4,7 @@ export interface Player {
   id: string;
   name?: string;
   rank: number;
-  color: "black" | "white";
+  color: "black" | "white" | null;
 }
 
 export interface Position {
@@ -89,7 +89,7 @@ export function createInitialGameState(): GameState {
 
 export function getValidMoves(
   board: ("black" | "white" | null)[][],
-  player: "black" | "white"
+  player: "black" | "white",
 ): Position[] {
   const validMoves: Position[] = [];
   const opponent = player === "black" ? "white" : "black";
@@ -144,7 +144,7 @@ export function getValidMoves(
 export function makeMove(
   gameState: GameState,
   row: number,
-  col: number
+  col: number,
 ): GameState {
   if (!isValidMove(gameState, row, col)) {
     throw new Error("Invalid move");
@@ -254,9 +254,9 @@ export function makeMove(
 export function isValidMove(
   gameState: GameState,
   row: number,
-  col: number
+  col: number,
 ): boolean {
   return gameState.validMoves.some(
-    (move) => move.row === row && move.col === col
+    (move) => move.row === row && move.col === col,
   );
 }

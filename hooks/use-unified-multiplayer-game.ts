@@ -92,16 +92,24 @@ export function useUnifiedMultiplayerGame() {
         case "room_created":
           setGameState((prev) => {
             console.log(
-              "Room created, setting local player to:",
-              message.player,
+              "Room created, no color assigned yet (waiting for match):",
+              message.roomId,
             );
             return {
               ...prev,
-              localPlayer: message.player === "black" ? "black" : "white",
               roomId: message.roomId,
               isWaitingForPlayer: true,
             };
           });
+          break;
+
+        case "player_assigned":
+          setGameState((prev) => ({
+            ...prev,
+            localPlayer: message.player,
+            roomId: message.roomId,
+            isWaitingForPlayer: false,
+          }));
           break;
 
         case "player_joined":
@@ -538,14 +546,28 @@ export function useRankedMultiplayerGame() {
         case "room_created":
           setGameState((prev) => {
             console.log(
-              "Room created, setting local player to:",
+              "Room created, no color assigned yet (waiting for match):",
+              message.roomId,
+            );
+            return {
+              ...prev,
+              roomId: message.roomId,
+              isWaitingForPlayer: true,
+            };
+          });
+          break;
+
+        case "player_assigned":
+          setGameState((prev) => {
+            console.log(
+              "Player assigned color:",
               message.player,
             );
             return {
               ...prev,
-              localPlayer: message.player === "black" ? "black" : "white",
-              roomId: message.roomId,
-              isWaitingForPlayer: true,
+              localPlayer: message.player,
+              roomId: message.roomId ?? prev.roomId,
+              isWaitingForPlayer: false,
             };
           });
           break;

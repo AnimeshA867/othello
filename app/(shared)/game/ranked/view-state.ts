@@ -140,6 +140,7 @@ interface GetRankedGameOverDialogCopyParams {
   winnerForRender: "black" | "white" | "draw" | null;
   gameMode: GameMode;
   playerRole?: Player;
+  playerColor?: "black" | "white";
   opponentName?: string;
 }
 
@@ -147,6 +148,7 @@ export function getRankedGameOverDialogCopy({
   winnerForRender,
   gameMode,
   playerRole,
+  playerColor = "black",
   opponentName = "Opponent",
 }: GetRankedGameOverDialogCopyParams): string {
   if (winnerForRender === "draw") {
@@ -163,10 +165,10 @@ export function getRankedGameOverDialogCopy({
     }
   }
 
-  // AI mode
-  if (winnerForRender === "black") {
-    return "🎉 You won! Congratulations on your victory!";
-  } else if (winnerForRender === "white") {
+  // AI mode — use playerColor to determine win/loss
+  if (winnerForRender === playerColor) {
+    return `🎉 You won! Congratulations on your victory against ${opponentName}!`;
+  } else if (winnerForRender !== null) {
     return `😔 ${opponentName} won this round. Better luck next time!`;
   }
 

@@ -16,7 +16,7 @@ import { useState } from "react";
 
 interface GameSidebarProps {
   currentPlayer: "black" | "white";
-  playerColor?: "black" | "white";
+  playerColor?: "black" | "white" | null;
   blackScore: number;
   whiteScore: number;
   playerName?: string;
@@ -114,13 +114,15 @@ export function GameSidebar({
                 }}
               />
               <span className="text-white font-medium text-sm lg:text-base">
-                {!playerColor || playerColor === "black"
-                  ? playerName || "You"
-                  : opponentName}
+                {playerColor === null
+                  ? "Waiting for assignment"
+                  : playerColor === "black"
+                    ? playerName || "You"
+                    : opponentName}
               </span>
             </div>
-            {currentPlayer === playerColor &&
-              playerColor === "black" &&
+            {playerColor &&
+              currentPlayer === playerColor &&
               gameStatus !== "finished" && (
                 <Badge
                   variant="secondary"
@@ -129,8 +131,8 @@ export function GameSidebar({
                   Your Turn
                 </Badge>
               )}
-            {currentPlayer === "black" &&
-              playerColor === "white" &&
+            {playerColor === "white" &&
+              currentPlayer !== playerColor &&
               gameStatus !== "finished" && (
                 <Badge
                   variant="secondary"
@@ -151,10 +153,14 @@ export function GameSidebar({
                 }}
               />
               <span className="text-white font-medium text-sm lg:text-base">
-                {playerColor === "white" ? playerName || "You" : opponentName}
+                {playerColor === null
+                  ? "Opponent"
+                  : playerColor === "white"
+                    ? playerName || "You"
+                    : opponentName}
               </span>
             </div>
-            {currentPlayer === playerColor && playerColor === "white" && (
+            {playerColor === "white" && currentPlayer === playerColor && (
               <Badge
                 variant="secondary"
                 className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
@@ -162,7 +168,7 @@ export function GameSidebar({
                 Your Turn
               </Badge>
             )}
-            {currentPlayer === "white" && playerColor === "black" && (
+            {playerColor && currentPlayer !== playerColor && (
               <Badge
                 variant="secondary"
                 className="bg-yellow-500 text-black animate-pulse text-xs lg:text-sm"
@@ -251,11 +257,10 @@ export function GameSidebar({
             <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={difficulty === "easy" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 ${
-                  difficulty === "easy"
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                }`}
+                className={`text-xs lg:text-sm transition-all duration-300 ${difficulty === "easy"
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-transparent border-white/30 text-white hover:bg-white/20"
+                  }`}
                 onClick={() => onDifficultyChange("easy")}
                 disabled={gameHasStarted && gameStatus !== "finished"}
               >
@@ -263,11 +268,10 @@ export function GameSidebar({
               </Button>
               <Button
                 variant={difficulty === "medium" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 ${
-                  difficulty === "medium"
-                    ? "bg-yellow-600 hover:bg-yellow-700 text-white"
-                    : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                }`}
+                className={`text-xs lg:text-sm transition-all duration-300 ${difficulty === "medium"
+                  ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+                  : "bg-transparent border-white/30 text-white hover:bg-white/20"
+                  }`}
                 onClick={() => onDifficultyChange("medium")}
                 disabled={gameHasStarted && gameStatus !== "finished"}
               >
@@ -275,13 +279,12 @@ export function GameSidebar({
               </Button>
               <Button
                 variant={difficulty === "hard" ? "default" : "outline"}
-                className={`text-xs lg:text-sm transition-all duration-300 relative ${
-                  difficulty === "hard"
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : !isAuthenticated
-                      ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
-                      : "bg-transparent border-white/30 text-white hover:bg-white/20"
-                }`}
+                className={`text-xs lg:text-sm transition-all duration-300 relative ${difficulty === "hard"
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : !isAuthenticated
+                    ? "bg-transparent border-white/30 text-white/50 cursor-not-allowed"
+                    : "bg-transparent border-white/30 text-white hover:bg-white/20"
+                  }`}
                 onClick={() => onDifficultyChange("hard")}
                 disabled={
                   (gameHasStarted && gameStatus !== "finished") ||

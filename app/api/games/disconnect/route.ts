@@ -31,21 +31,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Stats not found" }, { status: 500 });
     }
 
-    let eloChange = 0;
-    let newElo = currentStats.eloRating;
+    const disconnectRating = currentElo ?? currentStats.eloRating;
 
-    // Apply ELO penalty only for ranked mode disconnects
+    let eloChange = 0;
+    let newElo = disconnectRating;
+
+    // Apply ELO penalty for ranked mode disconnects — same as resign
     if (mode === "ranked") {
-      // Calculate ELO loss for disconnect (treated as loss)
-      const opponentElo = currentStats.eloRating; // Assume equal opponent
+      // Use the bot's ELO based on the player's rating tier (same as resign)
+      const botElo = disconnectRating; // Assume equal opponent
       const K = 32;
       const expectedScore =
-        1 / (1 + Math.pow(10, (opponentElo - currentStats.eloRating) / 400));
-      const actualScore = 0; // Loss
+        1 / (1 + Math.pow(10, (botElo - disconnectRating) / 400));
+      const actualScore = 0; // Loss — same as resign
       eloChange = Math.round(K * (actualScore - expectedScore));
-      newElo = currentStats.eloRating + eloChange;
+      newElo = disconnectRating + eloChange;
 
-      // Update stats with disconnect tracking and ELO penalty
+      // Update stats — treated as a loss + disconnect, same ELO impact as resign
       await prisma.gameStats.update({
         where: { userId: dbUser.id },
         data: {
@@ -89,8 +91,8 @@ export async function POST(request: NextRequest) {
       warning: disconnectRate > 0.2 ? "High disconnect rate detected" : null,
       message:
         mode === "ranked"
-          ? `Disconnect recorded - ELO penalty applied (${eloChange})`
-          : "Disconnect recorded",
+          ? `Disconnect recorded after ${duration}s and ${moveCount} moves - ELO penalty applied (${eloChange})`
+          : `Disconnect recorded after ${duration}s and ${moveCount} moves`,
     });
   } catch (error) {
     console.error("Game disconnect error:", error);

@@ -11,7 +11,8 @@
     "lint": "eslint",
     "server": "node server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "start:server": "ts-node server/index.ts"
+    "start:server": "ts-node server/index.ts",
+    "verify:ranked-colors": "ts-node --project tsconfig.server.json scripts/verify-ranked-match-colors.ts"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",

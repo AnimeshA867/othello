@@ -33,6 +33,7 @@ interface ExtendedWebSocket extends WebSocket {
 
 class EnhancedOthelloWebSocketServer {
   private wss: WebSocketServer;
+  private playerConnections: Map<string, ExtendedWebSocket> = new Map();
 
   constructor(serverOrPort: http.Server | number = 3003) {
     if (typeof serverOrPort === "number") {
@@ -152,16 +153,15 @@ class EnhancedOthelloWebSocketServer {
   private createRoom(ws: ExtendedWebSocket, playerName?: string) {
     const playerId = uuidv4();
     ws.playerId = playerId;
+    this.playerConnections.set(playerId, ws);
 
     try {
       const room = createRoom(playerId, playerName);
 
-      const creatorColor = room.players[0]?.color || "black";
-
       this.sendMessage(ws, {
         type: "room_created",
         roomId: room.roomId,
-        player: creatorColor,
+        player: null,
       });
 
       this.sendMessage(ws, {
@@ -184,6 +184,7 @@ class EnhancedOthelloWebSocketServer {
 
     const playerId = uuidv4();
     ws.playerId = playerId;
+    this.playerConnections.set(playerId, ws);
 
     try {
       const room = joinRoom(roomId, playerId, playerName);
@@ -193,12 +194,30 @@ class EnhancedOthelloWebSocketServer {
       const joiningPlayer = room.players.find((p) => p.id === playerId);
       const joiningColor = joiningPlayer?.color || "white";
 
+      const waitingPlayer = room.players.find((p) => p.id !== playerId);
+      if (waitingPlayer) {
+        const waitingSocket = this.playerConnections.get(waitingPlayer.id);
+        if (waitingSocket) {
+          this.sendMessage(waitingSocket, {
+            type: "player_assigned",
+            roomId: room.roomId,
+            player: waitingPlayer.color,
+          });
+        }
+      }
+
       // Send confirmation to the joining player
       this.sendMessage(ws, {
         type: "player_joined",
         player: joiningColor,
         roomId: room.roomId,
         playerName,
+      });
+
+      this.sendMessage(ws, {
+        type: "player_assigned",
+        roomId: room.roomId,
+        player: joiningColor,
       });
 
       // Send game state to the joining player
@@ -239,6 +258,7 @@ class EnhancedOthelloWebSocketServer {
   ) {
     const playerId = uuidv4();
     ws.playerId = playerId;
+    this.playerConnections.set(playerId, ws);
 
     // Validate rank set type
     if (!isValidRankSetType(rankSetType)) {
@@ -257,13 +277,10 @@ class EnhancedOthelloWebSocketServer {
 
       // If room is in waiting status, this is the first player
       if (room.status === "waiting") {
-        const creatorColor =
-          room.players.find((p) => p.id === playerId)?.color || "black";
-
         this.sendMessage(ws, {
           type: "room_created",
           roomId: room.roomId,
-          player: creatorColor,
+          player: null,
         });
 
         this.sendMessage(ws, {
@@ -278,12 +295,30 @@ class EnhancedOthelloWebSocketServer {
         const joiningPlayer = room.players.find((p) => p.id === playerId);
         const joiningColor = joiningPlayer?.color || "white";
 
+        const waitingPlayer = room.players.find((p) => p.id !== playerId);
+        if (waitingPlayer) {
+          const waitingSocket = this.playerConnections.get(waitingPlayer.id);
+          if (waitingSocket) {
+            this.sendMessage(waitingSocket, {
+              type: "player_assigned",
+              roomId: room.roomId,
+              player: waitingPlayer.color,
+            });
+          }
+        }
+
         // Send confirmation to the joining player
         this.sendMessage(ws, {
           type: "player_joined",
           player: joiningColor,
           roomId: room.roomId,
           playerName,
+        });
+
+        this.sendMessage(ws, {
+          type: "player_assigned",
+          roomId: room.roomId,
+          player: joiningColor,
         });
 
         // Send game state to the joining player
@@ -754,6 +789,7 @@ class EnhancedOthelloWebSocketServer {
 
       // Remove player from room
       removePlayerFromRoom(playerId);
+      this.playerConnections.delete(playerId);
     } catch (error) {
       console.error("Error handling disconnect:", error);
     }

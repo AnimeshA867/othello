@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useWebSocketGame, type WebSocketMessage } from "./use-websocket-game";
 import type { GameState, Player } from "@/lib/othello-game";
 import { getValidMoves } from "@/shared/gameLogic";
@@ -16,7 +16,6 @@ interface MultiplayerGameState extends GameState {
 export function useMultiplayerGame() {
   const {
     websocketState,
-    sendMessage,
     createRoom,
     joinRoom,
     makeMove: sendMove,
@@ -57,15 +56,23 @@ export function useMultiplayerGame() {
           setGameState((prev) => {
             console.log(
               "Room created, setting local player to:",
-              message.player
+              message.player,
             );
             return {
               ...prev,
-              localPlayer: message.player === "black" ? "black" : "white",
               roomId: message.roomId,
               isWaitingForPlayer: true,
             };
           });
+          break;
+
+        case "player_assigned":
+          setGameState((prev) => ({
+            ...prev,
+            localPlayer: message.player,
+            roomId: message.roomId,
+            isWaitingForPlayer: false,
+          }));
           break;
 
         case "player_joined":
@@ -74,7 +81,7 @@ export function useMultiplayerGame() {
               "Player joined, current localPlayer:",
               prev.localPlayer,
               "joined player:",
-              message.player
+              message.player,
             );
             if (message.player && !prev.localPlayer) {
               return {
@@ -118,7 +125,7 @@ export function useMultiplayerGame() {
               validMoves: validMoves,
               isWaitingForPlayer: false,
               opponentName:
-                prev.localPlayer === "black"
+                (prev.localPlayer ?? websocketState.playerRole) === "black"
                   ? message.players.white
                   : message.players.black,
             };
@@ -132,7 +139,7 @@ export function useMultiplayerGame() {
             if (message.gameState.validMoves) {
               console.log(
                 `Valid moves in ranked game: ${message.gameState.validMoves.length}`,
-                message.gameState.validMoves
+                message.gameState.validMoves,
               );
             } else {
               console.warn("No valid moves in ranked game state");
@@ -151,7 +158,7 @@ export function useMultiplayerGame() {
                       .filter((cell: "black" | "white" | null) => cell !== null)
                       .length
                   } pieces`
-                : "No board in update"
+                : "No board in update",
             );
 
             // Keep the original validMoves from the server
@@ -217,12 +224,12 @@ export function useMultiplayerGame() {
     });
 
     return unsubscribe;
-  }, [onMessage]);
+  }, [onMessage, websocketState.playerRole]);
   const createGameRoom = useCallback(
     (playerName?: string) => {
       createRoom(playerName);
     },
-    [createRoom]
+    [createRoom],
   );
 
   const joinGameRoom = useCallback(
@@ -233,7 +240,7 @@ export function useMultiplayerGame() {
         roomId,
       }));
     },
-    [joinRoom]
+    [joinRoom],
   );
 
   const makeMove = useCallback(
@@ -253,7 +260,7 @@ export function useMultiplayerGame() {
 
       // Check if it's a valid move
       const isValidMove = gameState.validMoves.some(
-        (move) => move.row === row && move.col === col
+        (move) => move.row === row && move.col === col,
       );
 
       if (!isValidMove) {
@@ -266,11 +273,11 @@ export function useMultiplayerGame() {
       return true;
     },
     [
-      gameState.localPlayer,
       gameState.currentPlayer,
       gameState.validMoves,
       sendMove,
-    ]
+      websocketState.playerRole,
+    ],
   );
 
   const restartGame = useCallback(() => {

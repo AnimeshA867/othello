@@ -24,7 +24,8 @@ export type WebSocketMessage =
       playerName?: string;
       rank?: number;
     }
-  | { type: "room_created"; roomId: string; player: Player }
+  | { type: "room_created"; roomId: string; player: Player | null }
+  | { type: "player_assigned"; roomId: string; player: Player }
   | { type: "game_state"; gameState: any }
   | { type: "move_made"; row: number; col: number; player: Player }
   | { type: "game_restarted" }
@@ -267,9 +268,24 @@ export function useWebSocketGame(): UseWebSocketGameReturn {
         setWebSocketState((prev) => ({
           ...prev,
           roomId: message.roomId,
-          playerRole: message.player,
           error: null,
           isWaitingForPlayer: true,
+        }));
+        if (message.player) {
+          setWebSocketState((prev) => ({
+            ...prev,
+            playerRole: message.player,
+          }));
+        }
+        break;
+
+      case "player_assigned":
+        setWebSocketState((prev) => ({
+          ...prev,
+          roomId: message.roomId,
+          playerRole: message.player,
+          error: null,
+          isWaitingForPlayer: false,
         }));
         break;
 
